@@ -1,96 +1,142 @@
 package controller
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
+	"os"
 	"time"
 
 	"backend/model"
-	"backend/usecase"
+	usecase "backend/usecase"
 
 	"github.com/labstack/echo/v4"
 )
 
-type UserController struct {
+type IUserController interface {
+	SignUp(c echo.Context) error
+	Login(c echo.Context) error
+	Logout(c echo.Context) error
+}
+
+type userController struct {
 	uu usecase.IUserUsecase
 }
 
-func NewUserController(uu usecase.IUserUsecase) *UserController {
-	return &UserController{uu}
+func NewUserController(uu usecase.IUserUsecase) IUserController {
+	return &userController{uu}
 }
 
-func (uc *UserController) Signup(c echo.Context) error {
-	var body model.RequestBodyUser
-	if err := c.Bind(&body); err != nil {
-		return c.JSON(http.StatusBadRequest, err)
+func (uc *userController) SignUp(c echo.Context) error {
+	user := model.User{}
+	if err := c.Bind(&user); err != nil {
+		return respondError(c, http.StatusBadRequest, "invalid_input", err.Error())
 	}
-
-	user := model.User{
-		Email:    body.Email,
-		Password: body.Password,
-	}
-
-	resUser, err := uc.uu.SignUp(user)
+	userRes, err := uc.uu.SignUp(user)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, err)
+		msg := err.Error()
+		if msg == "email is required" || msg == "invalid email format" || msg == "password is required" || msg == "password must be at least 8 characters" {
+			return respondError(c, http.StatusBadRequest, "invalid_input", msg)
+		}
+		return respondError(c, http.StatusInternalServerError, "internal_error", msg)
 	}
-
-	return c.JSON(http.StatusOK, resUser)
+	return respondSuccess(c, http.StatusCreated, userRes)
 }
 
-func (uc *UserController) Login(c echo.Context) error {
-
-	var body model.RequestBodyUser
-
-	if err := c.Bind(&body); err != nil {
-		return c.JSON(http.StatusBadRequest, err)
-	}
-
-	user := model.User{
-		Email:    body.Email,
-		Password: body.Password,
+func (uc *userController) Login(c echo.Context) error {
+	user := model.User{}
+	if err := c.Bind(&user); err != nil {
+		return respondError(c, http.StatusBadRequest, "invalid_input", err.Error())
 	}
 
 	sessionID, err := uc.uu.Login(user)
 	if err != nil {
-		return c.JSON(http.StatusUnauthorized, err)
+		msg := err.Error()
+		if msg == "email is required" || msg == "invalid email format" || msg == "password is required" || msg == "password must be at least 8 characters" {
+			return respondError(c, http.StatusBadRequest, "invalid_input", msg)
+		}
+		return respondError(c, http.StatusInternalServerError, "internal_error", msg)
 	}
 
-	cookie := &http.Cookie{
-		Name:     "session_id",
-		Value:    sessionID,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(24 * time.Hour),
+	sessionCookie := new(http.Cookie)
+	sessionCookie.Name = "session_id"
+	sessionCookie.Value = sessionID
+	sessionCookie.Expires = time.Now().Add(24 * time.Hour)
+	sessionCookie.Path = "/"
+	if d := os.Getenv("API_DOMAIN"); d != "" {
+		sessionCookie.Domain = d
 	}
+	sessionCookie.HttpOnly = true
+	sessionCookie.Secure = true
+	sessionCookie.SameSite = http.SameSiteLaxMode
+	c.SetCookie(sessionCookie)
 
-	c.SetCookie(cookie)
+	csrfToken := generateCSRFToken()
 
-	return c.JSON(http.StatusOK, "login success")
+	csrfCookie := new(http.Cookie)
+	csrfCookie.Name = "csrf_token"
+	csrfCookie.Value = csrfToken
+	csrfCookie.Expires = time.Now().Add(24 * time.Hour)
+	csrfCookie.Path = "/"
+	if d := os.Getenv("API_DOMAIN"); d != "" {
+		csrfCookie.Domain = d
+	}
+	csrfCookie.HttpOnly = false
+	csrfCookie.Secure = true
+	csrfCookie.SameSite = http.SameSiteLaxMode
+	c.SetCookie(csrfCookie)
+
+	return respondSuccess(c, http.StatusOK, nil)
 }
 
-func (uc *UserController) Logout(c echo.Context) error {
+func (uc *userController) Logout(c echo.Context) error {
 
-	cookie, err := c.Cookie("session_id")
-	if err != nil {
-		return c.JSON(http.StatusUnauthorized, err)
+	// session_id Cookie取得
+	ck, err := c.Cookie("session_id")
+	if err != nil || ck.Value == "" {
+		return respondError(c, http.StatusUnauthorized, "unauthorized", "session not found")
 	}
 
-	if err := uc.uu.Logout(cookie.Value); err != nil {
-		return c.JSON(http.StatusInternalServerError, err)
+	// PostgreSQL の user_sessions から削除
+	if err := uc.uu.Logout(ck.Value); err != nil {
+		return respondError(c, http.StatusUnauthorized, "unauthorized", "invalid session")
 	}
 
-	clearCookie := &http.Cookie{
-		Name:     "session_id",
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
+	// session_id Cookie 無効化
+	sessionCookie := new(http.Cookie)
+	sessionCookie.Name = "session_id"
+	sessionCookie.Value = ""
+	sessionCookie.Expires = time.Now()
+	sessionCookie.Path = "/"
+	if d := os.Getenv("API_DOMAIN"); d != "" {
+		sessionCookie.Domain = d
 	}
-	c.SetCookie(clearCookie)
+	sessionCookie.HttpOnly = true
+	sessionCookie.Secure = true
+	sessionCookie.SameSite = http.SameSiteLaxMode
+	c.SetCookie(sessionCookie)
 
-	return c.JSON(http.StatusOK, "logout success")
+	// csrf_token Cookie 無効化
+	csrfCookie := new(http.Cookie)
+	csrfCookie.Name = "csrf_token"
+	csrfCookie.Value = ""
+	csrfCookie.Expires = time.Now()
+	csrfCookie.Path = "/"
+	if d := os.Getenv("API_DOMAIN"); d != "" {
+		csrfCookie.Domain = d
+	}
+	csrfCookie.HttpOnly = false
+	csrfCookie.Secure = true
+	csrfCookie.SameSite = http.SameSiteLaxMode
+	c.SetCookie(csrfCookie)
+
+	return respondSuccess(c, http.StatusOK, nil)
+}
+
+func generateCSRFToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return hex.EncodeToString([]byte(time.Now().String()))
+	}
+	return hex.EncodeToString(b)
 }

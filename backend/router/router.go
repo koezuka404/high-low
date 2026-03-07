@@ -1,20 +1,37 @@
 package router
 
 import (
+	"time"
+
 	"backend/controller"
+	"backend/middleware"
+	"backend/repository"
 
 	"github.com/labstack/echo/v4"
 )
 
-func NewRouter(userController *controller.UserController) *echo.Echo {
+func NewRouter(
+	userController controller.IUserController,
+	userSessionRepo repository.IUserSessionRepository,
+) *echo.Echo {
 
 	e := echo.New()
 
-	api := e.Group("/api/auth")
+	authMW := middleware.NewAuthMiddleware(userSessionRepo)
 
-	api.POST("/signup", userController.Signup)
-	api.POST("/login", userController.Login)
-	api.POST("/logout", userController.Logout)
+	ttlMW := middleware.SessionTTLRefresh(middleware.SessionTTLRefreshConfig{
+		Sessions: userSessionRepo,
+		TTL:      24 * time.Hour,
+	})
+
+	e.POST("/signup", userController.SignUp)
+	e.POST("/login", userController.Login)
+	e.POST("/logout",
+		userController.Logout,
+		authMW.RequireAuth,
+		middleware.CSRFMiddleware,
+		ttlMW,
+	)
 
 	return e
 }

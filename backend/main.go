@@ -11,7 +11,6 @@ import (
 )
 
 func main() {
-
 	database := db.NewDB()
 
 	if err := database.AutoMigrate(&model.User{}, &model.UserSession{}); err != nil {
@@ -22,10 +21,9 @@ func main() {
 	sessionRepo := repository.NewUserSessionRepository(database)
 
 	userUsecase := usecase.NewUserUsecase(userRepo, sessionRepo)
-
 	userController := controller.NewUserController(userUsecase)
 
-	e := router.NewRouter(userController)
+	e := router.NewRouter(userController, sessionRepo)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
