@@ -25,16 +25,13 @@ func SessionTTLRefresh(cfg SessionTTLRefreshConfig) echo.MiddlewareFunc {
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			// 先にハンドラ実行
 			err := next(c)
 
-			// 更新系のみ
 			switch c.Request().Method {
 			case http.MethodGet, http.MethodHead, http.MethodOptions:
 				return err
 			}
 
-			// 成功時のみ
 			if c.Response().Status >= 400 {
 				return err
 			}
@@ -46,10 +43,8 @@ func SessionTTLRefresh(cfg SessionTTLRefreshConfig) echo.MiddlewareFunc {
 
 			expiresAt := cfg.Now().Add(cfg.TTL)
 
-			// ★ あなたのRepository仕様：RefreshTTL(id string, expiresAt time.Time) error
 			_ = cfg.Sessions.RefreshTTL(ck.Value, expiresAt)
 
-			// CookieのExpiresも更新（整合性）
 			c.SetCookie(&http.Cookie{
 				Name:     "session_id",
 				Value:    ck.Value,
@@ -60,7 +55,6 @@ func SessionTTLRefresh(cfg SessionTTLRefreshConfig) echo.MiddlewareFunc {
 				Expires:  expiresAt,
 			})
 
-			// csrf_token も期限を合わせる（任意）
 			if csrfCk, e := c.Cookie("csrf_token"); e == nil && csrfCk.Value != "" {
 				c.SetCookie(&http.Cookie{
 					Name:     "csrf_token",

@@ -11,7 +11,10 @@ import (
 )
 
 func main() {
-	database := db.NewDB()
+	database, err := db.NewDB()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if err := database.AutoMigrate(&model.User{}, &model.UserSession{}); err != nil {
 		log.Fatal(err)

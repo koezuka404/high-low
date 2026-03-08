@@ -91,18 +91,15 @@ func (uc *userController) Login(c echo.Context) error {
 
 func (uc *userController) Logout(c echo.Context) error {
 
-	// session_id Cookie取得
 	ck, err := c.Cookie("session_id")
 	if err != nil || ck.Value == "" {
 		return respondError(c, http.StatusUnauthorized, "unauthorized", "session not found")
 	}
 
-	// PostgreSQL の user_sessions から削除
 	if err := uc.uu.Logout(ck.Value); err != nil {
 		return respondError(c, http.StatusUnauthorized, "unauthorized", "invalid session")
 	}
 
-	// session_id Cookie 無効化
 	sessionCookie := new(http.Cookie)
 	sessionCookie.Name = "session_id"
 	sessionCookie.Value = ""
@@ -116,7 +113,6 @@ func (uc *userController) Logout(c echo.Context) error {
 	sessionCookie.SameSite = http.SameSiteLaxMode
 	c.SetCookie(sessionCookie)
 
-	// csrf_token Cookie 無効化
 	csrfCookie := new(http.Cookie)
 	csrfCookie.Name = "csrf_token"
 	csrfCookie.Value = ""
@@ -133,9 +129,11 @@ func (uc *userController) Logout(c echo.Context) error {
 	return respondSuccess(c, http.StatusOK, nil)
 }
 
+var csrfRandRead = rand.Read
+
 func generateCSRFToken() string {
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+	if _, err := csrfRandRead(b); err != nil {
 		return hex.EncodeToString([]byte(time.Now().String()))
 	}
 	return hex.EncodeToString(b)

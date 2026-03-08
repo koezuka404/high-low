@@ -7,8 +7,11 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.15.1
 	gorm.io/driver/postgres v1.6.0
+	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 )
+
+require github.com/mattn/go-sqlite3 v1.14.22 // indirect
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect

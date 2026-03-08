@@ -38,7 +38,6 @@ func (m *AuthMiddleware) RequireAuth(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		sess := model.UserSession{}
-		// ★ あなたのRepository仕様：FindByID(session *model.UserSession, id string) error
 		if err := m.Sessions.FindByID(&sess, ck.Value); err != nil {
 			return c.JSON(http.StatusUnauthorized, map[string]any{
 				"success": false,
