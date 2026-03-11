@@ -13,6 +13,7 @@ import (
 func NewRouter(
 	userController controller.IUserController,
 	userSessionRepo repository.IUserSessionRepository,
+	gameController controller.IGameController,
 ) *echo.Echo {
 
 	e := echo.New()
@@ -32,6 +33,8 @@ func NewRouter(
 		middleware.CSRFMiddleware,
 		ttlMW,
 	)
+
+	RegisterGameRoutes(e, gameController, middleware.RateLimitMiddleware, authMW, middleware.CSRFMiddleware, ttlMW)
 
 	return e
 }

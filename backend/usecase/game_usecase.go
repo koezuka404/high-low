@@ -1,173 +1,315 @@
 package usecase
 
 import (
+	"backend/domain"
 	"backend/model"
 	"backend/repository"
 	"errors"
 	"math/rand"
 	"time"
+
+	"gorm.io/gorm"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+var errVersionConflict = &AppError{Code: "version_conflict", Message: "version conflict"}
+var errGameAlreadyStarted = &AppError{Code: "game_already_started", Message: "game already started"}
+var errGameNotStarted = &AppError{Code: "game_not_started", Message: "game not started"}
+var errGameNotFinished = &AppError{Code: "game_not_finished", Message: "game not finished"}
+var errCheatNotAllowed = &AppError{Code: "cheat_not_allowed", Message: "cheat not allowed"}
+var errCheatAlreadyUsed = &AppError{Code: "cheat_already_used", Message: "cheat already used"}
+var errCheatNotAvailable = &AppError{Code: "cheat_not_available", Message: "cheat not available"}
+var errInvalidInput = &AppError{Code: "invalid_input", Message: "invalid input"}
+var errNoSelectableCard = &AppError{Code: "invalid_game_state", Message: "no selectable card"}
+var errForbidden = &AppError{Code: "forbidden", Message: "forbidden"}
+
+type AppError struct {
+	Code    string
+	Message string
+}
+
+func (e *AppError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
 type IGameUsecase interface {
-	StartGame(userID uint, mode string) (*model.Game, error)
-	SelectCard(userID uint, useCheat bool) (*model.Game, *model.Round, error)
-	GetGameState(userID uint) (*model.Game, error)
+	Start(userID uint, ver *int64) (*model.Game, error)
+	Select(userID uint, sessionID uint, ver int64) (*model.Game, *model.Round, error)
+	Cheat(userID uint, ver int64) (*model.Game, error)
+	ChangeMode(userID uint, mode model.GameMode, ver int64) (*model.Game, error)
+	Status(userID uint) (*model.Game, error)
 }
 
 type gameUsecase struct {
-	gr repository.IGameRepository
+	gr  repository.IGameRepository
+	rr  repository.IGameRoundLogRepository
 }
 
-func NewGameUsecase(gr repository.IGameRepository) IGameUsecase {
-	return &gameUsecase{gr: gr}
+func NewGameUsecase(gr repository.IGameRepository, rr repository.IGameRoundLogRepository) IGameUsecase {
+	return &gameUsecase{gr: gr, rr: rr}
 }
 
-func (gu *gameUsecase) StartGame(userID uint, mode string) (*model.Game, error) {
-	if mode != string(model.GameModePlayer) && mode != string(model.GameModeDealer) {
-		return nil, errors.New("invalid mode")
-	}
-
-	game := &model.Game{
-		UserID:          userID,
-		Status:          model.GameStatusInProgress,
-		Mode:            model.GameMode(mode),
-		PlayerScore:     0,
-		DealerScore:     0,
-		DrawCount:       0,
-		CheatUsed:       false,
-		CurrentRound:    0,
-		PlayerUsedCards: []int{},
-		DealerUsedCards: []int{},
-		Rounds:          []model.Round{},
-	}
-
-	if err := gu.gr.Create(game); err != nil {
-		return nil, err
-	}
-
-	return game, nil
-}
-
-func (gu *gameUsecase) GetGameState(userID uint) (*model.Game, error) {
+func (gu *gameUsecase) Start(userID uint, ver *int64) (*model.Game, error) {
 	game, err := gu.gr.FindByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
+	if game == nil {
+		newGame := &model.Game{
+			UserID:           userID,
+			Status:           model.GameStatusInProgress,
+			Mode:             model.GameModePlayer,
+			PlayerWins:       0,
+			DealerWins:       0,
+			ConsecutiveDraws: 0,
+			Cheated:          false,
+			CheatReserved:    false,
+			CheatCard:        nil,
+			Ver:              1,
+			PlayerUsedCards:  model.IntSlice{},
+			DealerUsedCards:  model.IntSlice{},
+			Rounds:           []model.Round{},
+		}
+		if err := gu.gr.Create(newGame); err != nil {
+			return nil, err
+		}
+		return newGame, nil
+	}
+	if game.Status == model.GameStatusInProgress {
+		return nil, errGameAlreadyStarted
+	}
+	if game.Status != model.GameStatusFinished {
+		return nil, errGameNotStarted
+	}
+	expectedVer := int64(0)
+	if ver != nil {
+		expectedVer = *ver
+	}
+	if game.Ver != expectedVer {
+		return nil, errVersionConflict
+	}
+	if err := gu.rr.DeleteByGameID(game.ID); err != nil {
+		return nil, err
+	}
+	game.Status = model.GameStatusInProgress
+	game.PlayerWins = 0
+	game.DealerWins = 0
+	game.ConsecutiveDraws = 0
+	game.Cheated = false
+	game.CheatReserved = false
+	game.CheatCard = nil
+	game.PlayerUsedCards = model.IntSlice{}
+	game.DealerUsedCards = model.IntSlice{}
+	game.Rounds = []model.Round{}
+	game.Ver = game.Ver + 1
+	game.UpdatedAt = time.Now()
+	if err := gu.gr.UpdateWithVersion(game, expectedVer); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errVersionConflict
+		}
+		return nil, err
+	}
 	return game, nil
 }
 
-func (gu *gameUsecase) SelectCard(userID uint, useCheat bool) (*model.Game, *model.Round, error) {
+func (gu *gameUsecase) Status(userID uint) (*model.Game, error) {
+	game, err := gu.gr.FindByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if game != nil {
+		rounds, err := gu.rr.FindByGameID(game.ID)
+		if err != nil {
+			return nil, err
+		}
+		game.Rounds = rounds
+	}
+	return game, nil
+}
+
+func (gu *gameUsecase) Select(userID uint, sessionID uint, ver int64) (*model.Game, *model.Round, error) {
+	if sessionID == 0 {
+		return nil, nil, errInvalidInput
+	}
+	// 7.3.1: user_id をキーとしてゲームセッションを取得する
 	game, err := gu.gr.FindByUserID(userID)
 	if err != nil {
 		return nil, nil, err
 	}
-
+	if game == nil {
+		return nil, nil, errGameNotStarted
+	}
+	if game.ID != sessionID {
+		return nil, nil, errForbidden
+	}
 	if game.Status != model.GameStatusInProgress {
-		return nil, nil, errors.New("game is not in progress")
+		return nil, nil, errGameNotStarted
+	}
+	if game.Ver != ver {
+		return nil, nil, errVersionConflict
 	}
 
-	playerCard := gu.drawRandomCard(game.PlayerUsedCards)
-	dealerCard := gu.drawRandomCard(game.DealerUsedCards)
-
-	roundCheatUsed := false
-
-	if game.Mode == model.GameModeDealer && useCheat {
-		if game.CheatUsed {
-			return nil, nil, errors.New("cheat already used")
-		}
-		dealerCard = gu.drawCheatCard(game.DealerUsedCards)
-		game.CheatUsed = true
-		roundCheatUsed = true
+	playerRemaining := domain.RemainingCards([]int(game.PlayerUsedCards))
+	dealerRemaining := domain.RemainingCards([]int(game.DealerUsedCards))
+	if len(playerRemaining) == 0 || len(dealerRemaining) == 0 {
+		return nil, nil, errNoSelectableCard
 	}
 
-	if playerCard == 0 || dealerCard == 0 {
-		return nil, nil, errors.New("no selectable card")
+	playerCard := pickRandom(playerRemaining)
+	var dealerCard int
+	if game.CheatReserved && game.CheatCard != nil {
+		dealerCard = *game.CheatCard
+	} else {
+		dealerCard = pickRandom(dealerRemaining)
 	}
 
 	game.PlayerUsedCards = append(game.PlayerUsedCards, playerCard)
 	game.DealerUsedCards = append(game.DealerUsedCards, dealerCard)
-	game.CurrentRound++
 
-	result := judgeRound(playerCard, dealerCard)
+	result := domain.JudgeRound(playerCard, dealerCard)
+	roundCheatUsed := game.CheatReserved && game.CheatCard != nil
 
 	switch result {
 	case model.RoundResultPlayerWin:
-		game.PlayerScore++
-		game.DrawCount = 0
+		game.PlayerWins++
+		game.ConsecutiveDraws = 0
 	case model.RoundResultDealerWin:
-		game.DealerScore++
-		game.DrawCount = 0
+		game.DealerWins++
+		game.ConsecutiveDraws = 0
 	case model.RoundResultDraw:
-		game.DrawCount++
+		game.ConsecutiveDraws++
 	}
 
-	if game.DrawCount >= 5 {
-		game.PlayerUsedCards = []int{}
-		game.DealerUsedCards = []int{}
-		game.DrawCount = 0
+	if game.ConsecutiveDraws >= 5 {
+		game.PlayerUsedCards = model.IntSlice{}
+		game.DealerUsedCards = model.IntSlice{}
+		game.ConsecutiveDraws = 0
 	}
 
-	if game.PlayerScore >= 2 || game.DealerScore >= 2 {
+	if roundCheatUsed {
+		game.CheatReserved = false
+		game.CheatCard = nil
+	}
+
+	count, err := gu.rr.CountByGameID(game.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	roundNum := int(count) + 1
+	round := model.Round{
+		Number:           roundNum,
+		PlayerCard:       playerCard,
+		DealerCard:       dealerCard,
+		Result:           result,
+		ConsecutiveDraws: game.ConsecutiveDraws,
+		CheatUsed:        roundCheatUsed,
+		PlayedAt:         time.Now(),
+	}
+	game.Rounds = append(game.Rounds, round)
+
+	if game.PlayerWins >= 2 || game.DealerWins >= 2 {
 		game.Status = model.GameStatusFinished
 	}
 
-	round := model.Round{
-		Number:     game.CurrentRound,
-		PlayerCard: playerCard,
-		DealerCard: dealerCard,
-		Result:     result,
-		CheatUsed:  roundCheatUsed,
-		PlayedAt:   time.Now(),
-	}
-
-	game.Rounds = append(game.Rounds, round)
-
-	if err := gu.gr.Save(game); err != nil {
+	game.Ver = game.Ver + 1
+	game.UpdatedAt = time.Now()
+	if err := gu.gr.UpdateWithVersion(game, ver); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil, errVersionConflict
+		}
 		return nil, nil, err
 	}
-
+	log := &model.GameRoundLog{
+		GameID:           game.ID,
+		Number:           round.Number,
+		PlayerCard:       round.PlayerCard,
+		DealerCard:       round.DealerCard,
+		Result:           round.Result,
+		ConsecutiveDraws: round.ConsecutiveDraws,
+		CheatUsed:        round.CheatUsed,
+		PlayedAt:         round.PlayedAt,
+	}
+	if err := gu.rr.Create(log); err != nil {
+		return nil, nil, err
+	}
 	return game, &round, nil
 }
 
-func judgeRound(playerCard, dealerCard int) model.RoundResult {
-	if playerCard > dealerCard {
-		return model.RoundResultPlayerWin
+func (gu *gameUsecase) Cheat(userID uint, ver int64) (*model.Game, error) {
+	game, err := gu.gr.FindByUserID(userID)
+	if err != nil {
+		return nil, err
 	}
-	if dealerCard > playerCard {
-		return model.RoundResultDealerWin
+	if game == nil {
+		return nil, errGameNotStarted
 	}
-	return model.RoundResultDraw
-}
-
-func (gu *gameUsecase) drawRandomCard(used []int) int {
-	candidates := availableCards(used, 1, 13)
-	if len(candidates) == 0 {
-		return 0
+	if game.Status != model.GameStatusInProgress {
+		return nil, errGameNotStarted
 	}
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return candidates[r.Intn(len(candidates))]
-}
-
-func (gu *gameUsecase) drawCheatCard(used []int) int {
-	candidates := availableCards(used, 11, 13)
-	if len(candidates) == 0 {
-		return 0
+	if game.Mode != model.GameModeDealer {
+		return nil, errCheatNotAllowed
 	}
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return candidates[r.Intn(len(candidates))]
-}
-
-func availableCards(used []int, min, max int) []int {
-	usedMap := map[int]bool{}
-	for _, v := range used {
-		usedMap[v] = true
+	if game.Cheated {
+		return nil, errCheatAlreadyUsed
+	}
+	if game.Ver != ver {
+		return nil, errVersionConflict
 	}
 
-	result := []int{}
-	for i := min; i <= max; i++ {
-		if !usedMap[i] {
-			result = append(result, i)
+	dealerRem := domain.RemainingCards([]int(game.DealerUsedCards))
+	if len(dealerRem) == 0 {
+		return nil, errCheatNotAvailable
+	}
+	cheatCard := domain.MaxInt(dealerRem)
+	game.CheatCard = &cheatCard
+	game.Cheated = true
+	game.CheatReserved = true
+	game.Ver = game.Ver + 1
+	game.UpdatedAt = time.Now()
+	if err := gu.gr.UpdateWithVersion(game, ver); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errVersionConflict
 		}
+		return nil, err
 	}
-	return result
+	return game, nil
+}
+
+func (gu *gameUsecase) ChangeMode(userID uint, mode model.GameMode, ver int64) (*model.Game, error) {
+	game, err := gu.gr.FindByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if game == nil {
+		return nil, errGameNotStarted
+	}
+	if game.Status != model.GameStatusFinished {
+		return nil, errGameNotFinished
+	}
+	if mode != model.GameModePlayer && mode != model.GameModeDealer {
+		return nil, errInvalidInput
+	}
+	if game.Ver != ver {
+		return nil, errVersionConflict
+	}
+	game.Mode = mode
+	game.Ver = game.Ver + 1
+	game.UpdatedAt = time.Now()
+	if err := gu.gr.UpdateWithVersion(game, ver); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errVersionConflict
+		}
+		return nil, err
+	}
+	return game, nil
+}
+
+func pickRandom(cards []int) int {
+	return cards[rand.Intn(len(cards))]
 }

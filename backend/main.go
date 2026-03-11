@@ -16,17 +16,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := database.AutoMigrate(&model.User{}, &model.UserSession{}); err != nil {
+	if err := database.AutoMigrate(&model.User{}, &model.UserSession{}, &model.Game{}, &model.GameRoundLog{}); err != nil {
 		log.Fatal(err)
 	}
 
 	userRepo := repository.NewUserRepository(database)
 	sessionRepo := repository.NewUserSessionRepository(database)
+	gameRepo := repository.NewGameRepository(database)
+	gameRoundLogRepo := repository.NewGameRoundLogRepository(database)
 
 	userUsecase := usecase.NewUserUsecase(userRepo, sessionRepo)
-	userController := controller.NewUserController(userUsecase)
+	gameUsecase := usecase.NewGameUsecase(gameRepo, gameRoundLogRepo)
 
-	e := router.NewRouter(userController, sessionRepo)
+	userController := controller.NewUserController(userUsecase)
+	gameController := controller.NewGameController(gameUsecase)
+
+	e := router.NewRouter(userController, sessionRepo, gameController)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

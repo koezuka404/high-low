@@ -1,48 +1,78 @@
 package controller
 
+import "backend/model"
+
+// Start
+
 type StartGameRequest struct {
-	Mode string `json:"mode"`
+	Ver *int64 `json:"ver"`
 }
 
 type StartGameResponse struct {
-	ID           uint   `json:"id"`
-	Status       string `json:"status"`
-	Mode         string `json:"mode"`
-	PlayerScore  int    `json:"playerScore"`
-	DealerScore  int    `json:"dealerScore"`
-	DrawCount    int    `json:"drawCount"`
-	CurrentRound int    `json:"currentRound"`
-	CheatUsed    bool   `json:"cheatUsed"`
+	SessionID  uint           `json:"session_id"`  // ゲームセッションID（select のリクエストで使用）
+	Mode       model.GameMode `json:"mode"`
+	PlayerWins int            `json:"player_wins"`
+	DealerWins int            `json:"dealer_wins"`
+	Ver        int64          `json:"ver"`
 }
+
+// Select
 
 type SelectCardRequest struct {
-	UseCheat bool `json:"useCheat"`
-}
-
-type RoundLogResponse struct {
-	Number     int    `json:"number"`
-	PlayerCard int    `json:"playerCard"`
-	DealerCard int    `json:"dealerCard"`
-	Result     string `json:"result"`
-	CheatUsed  bool   `json:"cheatUsed"`
-	PlayedAt   string `json:"playedAt"`
-}
-
-type GameStateResponse struct {
-	ID              uint               `json:"id"`
-	Status          string             `json:"status"`
-	Mode            string             `json:"mode"`
-	PlayerScore     int                `json:"playerScore"`
-	DealerScore     int                `json:"dealerScore"`
-	DrawCount       int                `json:"drawCount"`
-	CurrentRound    int                `json:"currentRound"`
-	CheatUsed       bool               `json:"cheatUsed"`
-	PlayerUsedCards []int              `json:"playerUsedCards"`
-	DealerUsedCards []int              `json:"dealerUsedCards"`
-	Rounds          []RoundLogResponse `json:"rounds"`
+	SessionID uint  `json:"session_id"` // ゲームセッションID（必須）
+	Ver       int64 `json:"ver"`        // 楽観ロック用バージョン（必須）
 }
 
 type SelectCardResponse struct {
-	GameStateResponse
-	LastRound RoundLogResponse `json:"lastRound"`
+	PlayerCard int            `json:"player_card"`
+	DealerCard int            `json:"dealer_card"`
+	Result     model.RoundResult `json:"result"`
+	PlayerWins int            `json:"player_wins"`
+	DealerWins int            `json:"dealer_wins"`
+	GameStatus model.GameStatus `json:"game_status"`
+	Ver        int64          `json:"ver"`
+}
+
+// Cheat
+
+type CheatRequest struct {
+	Ver int64 `json:"ver"`
+}
+
+type CheatResponse struct {
+	CheatReserved bool  `json:"cheat_reserved"`
+	CheatCard     int   `json:"cheat_card"`
+	Ver           int64 `json:"ver"`
+}
+
+// Mode
+
+type ChangeModeRequest struct {
+	Mode model.GameMode `json:"mode"`
+	Ver  int64          `json:"ver"`
+}
+
+type ChangeModeResponse struct {
+	Mode model.GameMode `json:"mode"`
+	Ver  int64          `json:"ver"`
+}
+
+// Status
+
+type HistoryItem struct {
+	Round            int            `json:"round"`
+	PlayerCard       int            `json:"player_card"`
+	DealerCard       int            `json:"dealer_card"`
+	Result           model.RoundResult `json:"result"`
+	ConsecutiveDraws int            `json:"consecutive_draws"`
+}
+
+type StatusResponse struct {
+	SessionID  uint             `json:"session_id"` // ゲームセッションID（select のリクエストで使用）
+	Status     model.GameStatus `json:"status"`
+	Mode       model.GameMode   `json:"mode"`
+	PlayerWins int              `json:"player_wins"`
+	DealerWins int              `json:"dealer_wins"`
+	Ver        int64            `json:"ver"`
+	History    []HistoryItem    `json:"history"`
 }

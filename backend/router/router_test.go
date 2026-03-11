@@ -37,12 +37,21 @@ func (m *mockSessionRepo) FindByID(session *model.UserSession, id string) error 
 func (m *mockSessionRepo) Delete(id string) error                          { return nil }
 func (m *mockSessionRepo) RefreshTTL(id string, expiresAt time.Time) error { return nil }
 
+type mockGameController struct{}
+
+func (m *mockGameController) Start(c echo.Context) error       { return c.NoContent(http.StatusOK) }
+func (m *mockGameController) Select(c echo.Context) error      { return c.NoContent(http.StatusOK) }
+func (m *mockGameController) Cheat(c echo.Context) error      { return c.NoContent(http.StatusOK) }
+func (m *mockGameController) ChangeMode(c echo.Context) error  { return c.NoContent(http.StatusOK) }
+func (m *mockGameController) Status(c echo.Context) error     { return c.NoContent(http.StatusOK) }
+
 func TestNewRouter(t *testing.T) {
 
 	ctrl := &mockUserController{}
 	repo := &mockSessionRepo{}
+	gameCtrl := &mockGameController{}
 
-	e := NewRouter(ctrl, repo)
+	e := NewRouter(ctrl, repo, gameCtrl)
 
 	if e == nil {
 		t.Fatal("router should not be nil")
