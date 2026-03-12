@@ -9,7 +9,7 @@ type StartGameRequest struct {
 }
 
 type StartGameResponse struct {
-	SessionID  uint           `json:"session_id"`  // ゲームセッションID（select のリクエストで使用）
+	SessionID  uint           `json:"session_id"` // ゲームセッションID（select のリクエストで使用）
 	Mode       model.GameMode `json:"mode"`
 	PlayerWins int            `json:"player_wins"`
 	DealerWins int            `json:"dealer_wins"`
@@ -68,7 +68,7 @@ type HistoryItem struct {
 }
 
 type StatusResponse struct {
-	SessionID  uint             `json:"session_id"` // ゲームセッションID（select のリクエストで使用）
+	SessionID  uint             `json:"session_id"`
 	Status     model.GameStatus `json:"status"`
 	Mode       model.GameMode   `json:"mode"`
 	PlayerWins int              `json:"player_wins"`

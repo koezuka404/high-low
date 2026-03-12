@@ -23,8 +23,10 @@ var errCheatNotAllowed = &AppError{Code: "cheat_not_allowed", Message: "cheat no
 var errCheatAlreadyUsed = &AppError{Code: "cheat_already_used", Message: "cheat already used"}
 var errCheatNotAvailable = &AppError{Code: "cheat_not_available", Message: "cheat not available"}
 var errInvalidInput = &AppError{Code: "invalid_input", Message: "invalid input"}
+var errInvalidMode = &AppError{Code: "invalid_mode", Message: "invalid mode"} // 7.5: mode が PLAYER/DEALER 以外
 var errNoSelectableCard = &AppError{Code: "invalid_game_state", Message: "no selectable card"}
 var errForbidden = &AppError{Code: "forbidden", Message: "forbidden"}
+var errSessionNotFound = &AppError{Code: "session_not_found", Message: "session not found"} // 7.3: セッション不存在 → 404
 
 type AppError struct {
 	Code    string
@@ -143,7 +145,7 @@ func (gu *gameUsecase) Select(userID uint, sessionID uint, ver int64) (*model.Ga
 		return nil, nil, err
 	}
 	if game == nil {
-		return nil, nil, errGameNotStarted
+		return nil, nil, errSessionNotFound // 7.3 エラー表: セッション不存在 → 404
 	}
 	if game.ID != sessionID {
 		return nil, nil, errForbidden
@@ -293,7 +295,7 @@ func (gu *gameUsecase) ChangeMode(userID uint, mode model.GameMode, ver int64) (
 		return nil, errGameNotFinished
 	}
 	if mode != model.GameModePlayer && mode != model.GameModeDealer {
-		return nil, errInvalidInput
+		return nil, errInvalidMode
 	}
 	if game.Ver != ver {
 		return nil, errVersionConflict
