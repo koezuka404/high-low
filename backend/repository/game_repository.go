@@ -6,10 +6,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// IGameRepository は game_sessions の永続化。User 側の IUserRepository に相当。
 type IGameRepository interface {
 	Create(game *model.Game) error
-	FindByID(id uint) (*model.Game, error)
-	FindByUserID(userID uint) (*model.Game, error)
+	GetGameByID(id uint) (*model.Game, error)
+	GetGameByUserID(userID uint) (*model.Game, error)
 	UpdateWithVersion(game *model.Game, expectedVer int64) error
 }
 
@@ -25,7 +26,7 @@ func (r *gameRepository) Create(game *model.Game) error {
 	return r.db.Create(game).Error
 }
 
-func (r *gameRepository) FindByID(id uint) (*model.Game, error) {
+func (r *gameRepository) GetGameByID(id uint) (*model.Game, error) {
 	var game model.Game
 	err := r.db.First(&game, id).Error
 	if err != nil {
@@ -37,7 +38,7 @@ func (r *gameRepository) FindByID(id uint) (*model.Game, error) {
 	return &game, nil
 }
 
-func (r *gameRepository) FindByUserID(userID uint) (*model.Game, error) {
+func (r *gameRepository) GetGameByUserID(userID uint) (*model.Game, error) {
 	var game model.Game
 	err := r.db.Where("user_id = ?", userID).First(&game).Error
 	if err != nil {

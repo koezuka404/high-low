@@ -15,31 +15,6 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-var errVersionConflict = &AppError{Code: "version_conflict", Message: "version conflict"}
-var errGameAlreadyStarted = &AppError{Code: "game_already_started", Message: "game already started"}
-var errGameNotStarted = &AppError{Code: "game_not_started", Message: "game not started"}
-var errGameNotFinished = &AppError{Code: "game_not_finished", Message: "game not finished"}
-var errCheatNotAllowed = &AppError{Code: "cheat_not_allowed", Message: "cheat not allowed"}
-var errCheatAlreadyUsed = &AppError{Code: "cheat_already_used", Message: "cheat already used"}
-var errCheatNotAvailable = &AppError{Code: "cheat_not_available", Message: "cheat not available"}
-var errInvalidInput = &AppError{Code: "invalid_input", Message: "invalid input"}
-var errInvalidMode = &AppError{Code: "invalid_mode", Message: "invalid mode"} // 7.5: mode が PLAYER/DEALER 以外
-var errNoSelectableCard = &AppError{Code: "invalid_game_state", Message: "no selectable card"}
-var errForbidden = &AppError{Code: "forbidden", Message: "forbidden"}
-var errSessionNotFound = &AppError{Code: "session_not_found", Message: "session not found"} // 7.3: セッション不存在 → 404
-
-type AppError struct {
-	Code    string
-	Message string
-}
-
-func (e *AppError) Error() string {
-	if e == nil {
-		return ""
-	}
-	return e.Message
-}
-
 type IGameUsecase interface {
 	Start(userID uint, ver *int64) (*model.Game, error)
 	Select(userID uint, sessionID uint, ver int64) (*model.Game, *model.Round, error)
@@ -58,7 +33,7 @@ func NewGameUsecase(gr repository.IGameRepository, rr repository.IGameRoundLogRe
 }
 
 func (gu *gameUsecase) Start(userID uint, ver *int64) (*model.Game, error) {
-	game, err := gu.gr.FindByUserID(userID)
+	game, err := gu.gr.GetGameByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,12 +96,12 @@ func (gu *gameUsecase) Start(userID uint, ver *int64) (*model.Game, error) {
 }
 
 func (gu *gameUsecase) Status(userID uint) (*model.Game, error) {
-	game, err := gu.gr.FindByUserID(userID)
+	game, err := gu.gr.GetGameByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
 	if game != nil {
-		rounds, err := gu.rr.FindByGameID(game.ID)
+		rounds, err := gu.rr.GetRoundLogsByGameID(game.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -140,7 +115,7 @@ func (gu *gameUsecase) Select(userID uint, sessionID uint, ver int64) (*model.Ga
 		return nil, nil, errInvalidInput
 	}
 	// 7.3.1: user_id をキーとしてゲームセッションを取得する
-	game, err := gu.gr.FindByUserID(userID)
+	game, err := gu.gr.GetGameByUserID(userID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -199,7 +174,7 @@ func (gu *gameUsecase) Select(userID uint, sessionID uint, ver int64) (*model.Ga
 		game.CheatCard = nil
 	}
 
-	count, err := gu.rr.CountByGameID(game.ID)
+	count, err := gu.rr.GetRoundLogCountByGameID(game.ID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -244,12 +219,12 @@ func (gu *gameUsecase) Select(userID uint, sessionID uint, ver int64) (*model.Ga
 }
 
 func (gu *gameUsecase) Cheat(userID uint, ver int64) (*model.Game, error) {
-	game, err := gu.gr.FindByUserID(userID)
+	game, err := gu.gr.GetGameByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
 	if game == nil {
-		return nil, errGameNotStarted
+		return nil, errSessionNotFound // 仕様修正: セッション不存在 → 404（select と統一）
 	}
 	if game.Status != model.GameStatusInProgress {
 		return nil, errGameNotStarted
@@ -284,7 +259,7 @@ func (gu *gameUsecase) Cheat(userID uint, ver int64) (*model.Game, error) {
 }
 
 func (gu *gameUsecase) ChangeMode(userID uint, mode model.GameMode, ver int64) (*model.Game, error) {
-	game, err := gu.gr.FindByUserID(userID)
+	game, err := gu.gr.GetGameByUserID(userID)
 	if err != nil {
 		return nil, err
 	}

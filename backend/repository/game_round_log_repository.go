@@ -6,10 +6,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// IGameRoundLogRepository は勝敗ログ（game_round_logs）の永続化。User 側の IUserSessionRepository に相当。
 type IGameRoundLogRepository interface {
 	Create(log *model.GameRoundLog) error
-	FindByGameID(gameID uint) ([]model.Round, error)
-	CountByGameID(gameID uint) (int64, error)
+	GetRoundLogsByGameID(gameID uint) ([]model.Round, error)
+	GetRoundLogCountByGameID(gameID uint) (int64, error)
 	DeleteByGameID(gameID uint) error
 }
 
@@ -25,7 +26,7 @@ func (r *gameRoundLogRepository) Create(log *model.GameRoundLog) error {
 	return r.db.Create(log).Error
 }
 
-func (r *gameRoundLogRepository) FindByGameID(gameID uint) ([]model.Round, error) {
+func (r *gameRoundLogRepository) GetRoundLogsByGameID(gameID uint) ([]model.Round, error) {
 	var logs []model.GameRoundLog
 	if err := r.db.Where("game_id = ?", gameID).Order("number ASC").Find(&logs).Error; err != nil {
 		return nil, err
@@ -45,7 +46,7 @@ func (r *gameRoundLogRepository) FindByGameID(gameID uint) ([]model.Round, error
 	return out, nil
 }
 
-func (r *gameRoundLogRepository) CountByGameID(gameID uint) (int64, error) {
+func (r *gameRoundLogRepository) GetRoundLogCountByGameID(gameID uint) (int64, error) {
 	var n int64
 	err := r.db.Model(&model.GameRoundLog{}).Where("game_id = ?", gameID).Count(&n).Error
 	return n, err
