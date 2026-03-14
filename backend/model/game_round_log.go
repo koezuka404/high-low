@@ -2,7 +2,6 @@ package model
 
 import "time"
 
-// GameRoundLog は game_round_logs テーブルの1行（勝敗ログ）。User 側の UserSession に相当。
 type GameRoundLog struct {
 	ID               uint       `gorm:"primaryKey"`
 	GameID           uint       `gorm:"not null;index"`

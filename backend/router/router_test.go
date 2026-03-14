@@ -50,8 +50,9 @@ func TestNewRouter(t *testing.T) {
 	ctrl := &mockUserController{}
 	repo := &mockSessionRepo{}
 	gameCtrl := &mockGameController{}
+	rateLimitMW := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 
-	e := NewRouter(ctrl, repo, gameCtrl)
+	e := NewRouter(ctrl, repo, gameCtrl, rateLimitMW)
 
 	if e == nil {
 		t.Fatal("router should not be nil")

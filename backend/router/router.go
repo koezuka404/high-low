@@ -14,6 +14,7 @@ func NewRouter(
 	userController controller.IUserController,
 	userSessionRepo repository.IUserSessionRepository,
 	gameController controller.IGameController,
+	rateLimitMW echo.MiddlewareFunc,
 ) *echo.Echo {
 
 	e := echo.New()
@@ -34,7 +35,7 @@ func NewRouter(
 		ttlMW,
 	)
 
-	RegisterGameRoutes(e, gameController, middleware.RateLimitMiddleware, authMW, middleware.CSRFMiddleware, ttlMW)
+	RegisterGameRoutes(e, gameController, rateLimitMW, authMW, middleware.CSRFMiddleware, ttlMW)
 
 	return e
 }

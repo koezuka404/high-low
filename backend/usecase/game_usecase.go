@@ -114,13 +114,12 @@ func (gu *gameUsecase) Select(userID uint, sessionID uint, ver int64) (*model.Ga
 	if sessionID == 0 {
 		return nil, nil, errInvalidInput
 	}
-	// 7.3.1: user_id をキーとしてゲームセッションを取得する
 	game, err := gu.gr.GetGameByUserID(userID)
 	if err != nil {
 		return nil, nil, err
 	}
 	if game == nil {
-		return nil, nil, errSessionNotFound // 7.3 エラー表: セッション不存在 → 404
+		return nil, nil, errSessionNotFound
 	}
 	if game.ID != sessionID {
 		return nil, nil, errForbidden
@@ -224,7 +223,7 @@ func (gu *gameUsecase) Cheat(userID uint, ver int64) (*model.Game, error) {
 		return nil, err
 	}
 	if game == nil {
-		return nil, errSessionNotFound // 仕様修正: セッション不存在 → 404（select と統一）
+		return nil, errSessionNotFound
 	}
 	if game.Status != model.GameStatusInProgress {
 		return nil, errGameNotStarted

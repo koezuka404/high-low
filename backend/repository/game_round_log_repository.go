@@ -6,7 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// IGameRoundLogRepository は勝敗ログ（game_round_logs）の永続化。User 側の IUserSessionRepository に相当。
 type IGameRoundLogRepository interface {
 	Create(log *model.GameRoundLog) error
 	GetRoundLogsByGameID(gameID uint) ([]model.Round, error)

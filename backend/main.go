@@ -1,9 +1,12 @@
 package main
 
 import (
+	"time"
+
 	"backend/controller"
 	"backend/db"
 	"backend/model"
+	"backend/middleware"
 	"backend/repository"
 	"backend/router"
 	"backend/usecase"
@@ -20,6 +23,9 @@ func main() {
 		log.Fatal(err)
 	}
 
+	redisClient, _ := db.NewRedis()
+	rateLimitRepo := repository.NewRateLimitRepository(redisClient)
+
 	userRepo := repository.NewUserRepository(database)
 	sessionRepo := repository.NewUserSessionRepository(database)
 	gameRepo := repository.NewGameRepository(database)
@@ -31,7 +37,13 @@ func main() {
 	userController := controller.NewUserController(userUsecase)
 	gameController := controller.NewGameController(gameUsecase)
 
-	e := router.NewRouter(userController, sessionRepo, gameController)
+	rateLimitMW := middleware.NewRateLimitMiddleware(middleware.RateLimitConfig{
+		RateLimitRepo: rateLimitRepo,
+		Sessions:      sessionRepo,
+		Now:           time.Now,
+	})
+
+	e := router.NewRouter(userController, sessionRepo, gameController, rateLimitMW)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

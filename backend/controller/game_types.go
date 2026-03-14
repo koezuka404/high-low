@@ -2,25 +2,21 @@ package controller
 
 import "backend/model"
 
-// Start
-
 type StartGameRequest struct {
 	Ver *int64 `json:"ver"`
 }
 
 type StartGameResponse struct {
-	SessionID  uint           `json:"session_id"` // ゲームセッションID（select のリクエストで使用）
+	SessionID  uint           `json:"session_id"`
 	Mode       model.GameMode `json:"mode"`
 	PlayerWins int            `json:"player_wins"`
 	DealerWins int            `json:"dealer_wins"`
 	Ver        int64          `json:"ver"`
 }
 
-// Select
-
 type SelectCardRequest struct {
-	SessionID uint  `json:"session_id"` // ゲームセッションID（必須）
-	Ver       int64 `json:"ver"`        // 楽観ロック用バージョン（必須）
+	SessionID uint  `json:"session_id"`
+	Ver       int64 `json:"ver"`
 }
 
 type SelectCardResponse struct {
@@ -33,8 +29,6 @@ type SelectCardResponse struct {
 	Ver        int64          `json:"ver"`
 }
 
-// Cheat
-
 type CheatRequest struct {
 	Ver int64 `json:"ver"`
 }
@@ -45,8 +39,6 @@ type CheatResponse struct {
 	Ver           int64 `json:"ver"`
 }
 
-// Mode
-
 type ChangeModeRequest struct {
 	Mode model.GameMode `json:"mode"`
 	Ver  int64          `json:"ver"`
@@ -56,8 +48,6 @@ type ChangeModeResponse struct {
 	Mode model.GameMode `json:"mode"`
 	Ver  int64          `json:"ver"`
 }
-
-// Status
 
 type HistoryItem struct {
 	Round            int            `json:"round"`

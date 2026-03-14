@@ -6,7 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// IGameRepository は game_sessions の永続化。User 側の IUserRepository に相当。
 type IGameRepository interface {
 	Create(game *model.Game) error
 	GetGameByID(id uint) (*model.Game, error)

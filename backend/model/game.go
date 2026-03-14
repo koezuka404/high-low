@@ -28,7 +28,6 @@ const (
 	RoundResultDraw      RoundResult = "DRAW"
 )
 
-// Round は 1 ラウンドのログ（history の 1 件）。API/ドメイン用。DB には GameRoundLog で保存する。
 type Round struct {
 	Number           int          `json:"number"`
 	PlayerCard       int          `json:"player_card"`
@@ -39,7 +38,6 @@ type Round struct {
 	PlayedAt         time.Time    `json:"played_at"`
 }
 
-// IntSlice for DB storage of []int as JSON.
 type IntSlice []int
 
 func (s IntSlice) Value() (driver.Value, error) {
@@ -84,7 +82,7 @@ type Game struct {
 	Ver              int64     `gorm:"not null"`
 	PlayerUsedCards   IntSlice  `gorm:"type:text"`
 	DealerUsedCards   IntSlice  `gorm:"type:text"`
-	Rounds            []Round   `gorm:"-"` // history は game_round_logs で管理。読み込み時に付与。
+	Rounds            []Round   `gorm:"-"`
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 }

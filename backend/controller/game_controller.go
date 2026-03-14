@@ -62,6 +62,9 @@ func (gc *gameController) Select(c echo.Context) error {
 	if req.SessionID == 0 {
 		return respondError(c, http.StatusBadRequest, "invalid_input", "session_id is required")
 	}
+	if req.Ver == 0 {
+		return respondError(c, http.StatusBadRequest, "invalid_input", "ver is required")
+	}
 	game, round, err := gc.gu.Select(userID, req.SessionID, req.Ver)
 	if err != nil {
 		return handleGameError(c, err)
@@ -86,6 +89,9 @@ func (gc *gameController) Cheat(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return respondError(c, http.StatusBadRequest, "invalid_json", err.Error())
 	}
+	if req.Ver == 0 {
+		return respondError(c, http.StatusBadRequest, "invalid_input", "ver is required")
+	}
 	game, err := gc.gu.Cheat(userID, req.Ver)
 	if err != nil {
 		return handleGameError(c, err)
@@ -109,6 +115,9 @@ func (gc *gameController) ChangeMode(c echo.Context) error {
 	var req ChangeModeRequest
 	if err := c.Bind(&req); err != nil {
 		return respondError(c, http.StatusBadRequest, "invalid_json", err.Error())
+	}
+	if req.Ver == 0 {
+		return respondError(c, http.StatusBadRequest, "invalid_input", "ver is required")
 	}
 	game, err := gc.gu.ChangeMode(userID, req.Mode, req.Ver)
 	if err != nil {
@@ -177,8 +186,6 @@ func isEOF(err error) bool {
 	return err == io.EOF
 }
 
-// handleGameError は Usecase の AppError を HTTP レスポンスに変換する。
-// invalid_mode（7.5）含め、httpStatusFromCode で code ごとのステータス（400/404/409 等）を決定する。
 func handleGameError(c echo.Context, err error) error {
 	if err == nil {
 		return nil
@@ -191,10 +198,6 @@ func handleGameError(c echo.Context, err error) error {
 	return respondError(c, http.StatusInternalServerError, "internal_error", err.Error())
 }
 
-// httpStatusFromCode は仕様 7.1 エラーコード一覧＋7.3 session_not_found、7.5 invalid_mode に従い HTTP ステータスを返す。
-// 7.1: invalid_json, invalid_input, invalid_game_state, game_not_started, game_not_finished,
-// game_already_started, cheat_not_available, cheat_already_used, cheat_not_allowed, unauthorized,
-// forbidden, version_conflict, too_many_requests / 7.3: session_not_found(404) / 7.5: invalid_mode(400)
 func httpStatusFromCode(code string) int {
 	switch code {
 	case "invalid_json", "invalid_input", "invalid_game_state", "invalid_mode",
@@ -205,7 +208,7 @@ func httpStatusFromCode(code string) int {
 		return http.StatusUnauthorized
 	case "forbidden":
 		return http.StatusForbidden
-	case "session_not_found": // 7.3 エラー表: セッション不存在
+	case "session_not_found":
 		return http.StatusNotFound
 	case "version_conflict":
 		return http.StatusConflict
