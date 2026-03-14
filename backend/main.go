@@ -7,6 +7,7 @@ import (
 	"backend/db"
 	"backend/model"
 	"backend/middleware"
+	"backend/redis"
 	"backend/repository"
 	"backend/router"
 	"backend/usecase"
@@ -23,7 +24,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	redisClient, _ := db.NewRedis()
+	redisClient, _ := redis.NewRedis()
 	rateLimitRepo := repository.NewRateLimitRepository(redisClient)
 
 	userRepo := repository.NewUserRepository(database)

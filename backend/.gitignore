@@ -1,10 +1,8 @@
-# Cookie/認証まわり（開発用・再生成される）
+
 cookies.txt
 
-# テストカバレッジ（go test -coverprofile=coverage.out で再生成）
 coverage.out
 *.out
 
-# 環境変数（機密の可能性）
 .env
 .env.local
