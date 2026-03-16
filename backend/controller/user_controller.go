@@ -3,8 +3,10 @@ package controller
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"backend/model"
@@ -32,8 +34,17 @@ func (uc *userController) SignUp(c echo.Context) error {
 	if err := c.Bind(&user); err != nil {
 		return respondError(c, http.StatusBadRequest, "invalid_input", err.Error())
 	}
-	userRes, err := uc.uu.SignUp(user)
+	clientIP := c.RealIP()
+	if clientIP == "" {
+		clientIP = c.Request().RemoteAddr
+	}
+	userRes, err := uc.uu.SignUp(c.Request().Context(), user, clientIP)
 	if err != nil {
+		var rateLimitErr *usecase.RateLimitError
+		if errors.As(err, &rateLimitErr) {
+			c.Response().Header().Set("Retry-After", strconv.Itoa(rateLimitErr.RetryAfterSec))
+			return respondError(c, http.StatusTooManyRequests, "too_many_requests", "rate limit exceeded")
+		}
 		msg := err.Error()
 		if msg == "email is required" || msg == "invalid email format" || msg == "password is required" || msg == "password must be at least 8 characters" {
 			return respondError(c, http.StatusBadRequest, "invalid_input", msg)
@@ -48,9 +59,17 @@ func (uc *userController) Login(c echo.Context) error {
 	if err := c.Bind(&user); err != nil {
 		return respondError(c, http.StatusBadRequest, "invalid_input", err.Error())
 	}
-
-	sessionID, err := uc.uu.Login(user)
+	clientIP := c.RealIP()
+	if clientIP == "" {
+		clientIP = c.Request().RemoteAddr
+	}
+	sessionID, err := uc.uu.Login(c.Request().Context(), user, clientIP)
 	if err != nil {
+		var rateLimitErr *usecase.RateLimitError
+		if errors.As(err, &rateLimitErr) {
+			c.Response().Header().Set("Retry-After", strconv.Itoa(rateLimitErr.RetryAfterSec))
+			return respondError(c, http.StatusTooManyRequests, "too_many_requests", "rate limit exceeded")
+		}
 		msg := err.Error()
 		if msg == "email is required" || msg == "invalid email format" || msg == "password is required" || msg == "password must be at least 8 characters" {
 			return respondError(c, http.StatusBadRequest, "invalid_input", msg)

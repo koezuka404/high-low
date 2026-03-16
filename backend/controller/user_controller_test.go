@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -20,14 +21,14 @@ type mockUserUsecase struct {
 	logoutFn func(sessionID string) error
 }
 
-func (m *mockUserUsecase) SignUp(user model.User) (model.ResponseUser, error) {
+func (m *mockUserUsecase) SignUp(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error) {
 	if m.signUpFn == nil {
 		return model.ResponseUser{}, nil
 	}
 	return m.signUpFn(user)
 }
 
-func (m *mockUserUsecase) Login(user model.User) (string, error) {
+func (m *mockUserUsecase) Login(ctx context.Context, user model.User, clientIP string) (string, error) {
 	if m.loginFn == nil {
 		return "", nil
 	}

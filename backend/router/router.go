@@ -5,14 +5,14 @@ import (
 
 	"backend/controller"
 	"backend/middleware"
-	"backend/repository"
+	"backend/usecase"
 
 	"github.com/labstack/echo/v4"
 )
 
 func NewRouter(
 	userController controller.IUserController,
-	userSessionRepo repository.IUserSessionRepository,
+	userSessionRepo usecase.IUserSessionRepository,
 	gameController controller.IGameController,
 	rateLimitMW echo.MiddlewareFunc,
 ) *echo.Echo {

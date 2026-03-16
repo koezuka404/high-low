@@ -3,7 +3,6 @@ package usecase
 import (
 	"backend/domain"
 	"backend/model"
-	"backend/repository"
 	"errors"
 	"math/rand"
 	"time"
@@ -24,11 +23,11 @@ type IGameUsecase interface {
 }
 
 type gameUsecase struct {
-	gr  repository.IGameRepository
-	rr  repository.IGameRoundLogRepository
+	gr IGameRepository
+	rr IGameRoundLogRepository
 }
 
-func NewGameUsecase(gr repository.IGameRepository, rr repository.IGameRoundLogRepository) IGameUsecase {
+func NewGameUsecase(gr IGameRepository, rr IGameRoundLogRepository) IGameUsecase {
 	return &gameUsecase{gr: gr, rr: rr}
 }
 

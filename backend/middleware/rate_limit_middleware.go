@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"backend/model"
-	"backend/repository"
+	"backend/usecase"
 
 	"github.com/labstack/echo/v4"
 )
 
 type RateLimitConfig struct {
-	RateLimitRepo repository.IRateLimitRepository
-	Sessions      repository.IUserSessionRepository
+	RateLimitRepo usecase.RateLimiter
+	Sessions      usecase.IUserSessionRepository
 	Now           func() time.Time
 }
 
@@ -33,7 +33,8 @@ func NewRateLimitMiddleware(cfg RateLimitConfig) echo.MiddlewareFunc {
 			if ctx == nil {
 				ctx = context.Background()
 			}
-			allowed, retryAfterSec, err := cfg.RateLimitRepo.ConsumeToken(ctx, userID)
+			key := "user:" + strconv.FormatUint(uint64(userID), 10)
+			allowed, retryAfterSec, err := cfg.RateLimitRepo.ConsumeToken(ctx, key, nil)
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]any{
 					"success": false,
@@ -58,7 +59,7 @@ func NewRateLimitMiddleware(cfg RateLimitConfig) echo.MiddlewareFunc {
 	}
 }
 
-func getUserIDForRateLimit(c echo.Context, sessions repository.IUserSessionRepository, now func() time.Time) uint {
+func getUserIDForRateLimit(c echo.Context, sessions usecase.IUserSessionRepository, now func() time.Time) uint {
 	ck, err := c.Cookie("session_id")
 	if err != nil || ck == nil || ck.Value == "" {
 		return 0

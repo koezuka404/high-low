@@ -2,22 +2,16 @@ package repository
 
 import (
 	"backend/model"
+	"backend/usecase"
 
 	"gorm.io/gorm"
 )
-
-type IGameRoundLogRepository interface {
-	Create(log *model.GameRoundLog) error
-	GetRoundLogsByGameID(gameID uint) ([]model.Round, error)
-	GetRoundLogCountByGameID(gameID uint) (int64, error)
-	DeleteByGameID(gameID uint) error
-}
 
 type gameRoundLogRepository struct {
 	db *gorm.DB
 }
 
-func NewGameRoundLogRepository(db *gorm.DB) IGameRoundLogRepository {
+func NewGameRoundLogRepository(db *gorm.DB) usecase.IGameRoundLogRepository {
 	return &gameRoundLogRepository{db: db}
 }
 

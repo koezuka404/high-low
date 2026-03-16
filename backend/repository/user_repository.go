@@ -2,21 +2,16 @@ package repository
 
 import (
 	"backend/model"
+	"backend/usecase"
 
 	"gorm.io/gorm"
 )
-
-type IUserRepository interface {
-	Create(user *model.User) error
-	GetUserByEmail(user *model.User, email string) error
-	GetUserByID(user *model.User, id uint) error
-}
 
 type userRepository struct {
 	db *gorm.DB
 }
 
-func NewUserRepository(db *gorm.DB) IUserRepository {
+func NewUserRepository(db *gorm.DB) usecase.IUserRepository {
 	return &userRepository{db: db}
 }
 

@@ -2,22 +2,16 @@ package repository
 
 import (
 	"backend/model"
+	"backend/usecase"
 
 	"gorm.io/gorm"
 )
-
-type IGameRepository interface {
-	Create(game *model.Game) error
-	GetGameByID(id uint) (*model.Game, error)
-	GetGameByUserID(userID uint) (*model.Game, error)
-	UpdateWithVersion(game *model.Game, expectedVer int64) error
-}
 
 type gameRepository struct {
 	db *gorm.DB
 }
 
-func NewGameRepository(db *gorm.DB) IGameRepository {
+func NewGameRepository(db *gorm.DB) usecase.IGameRepository {
 	return &gameRepository{db: db}
 }
 

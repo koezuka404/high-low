@@ -4,22 +4,16 @@ import (
 	"time"
 
 	"backend/model"
+	"backend/usecase"
 
 	"gorm.io/gorm"
 )
-
-type IUserSessionRepository interface {
-	Create(session *model.UserSession) error
-	FindByID(session *model.UserSession, id string) error
-	Delete(id string) error
-	RefreshTTL(id string, expiresAt time.Time) error
-}
 
 type userSessionRepository struct {
 	db *gorm.DB
 }
 
-func NewUserSessionRepository(db *gorm.DB) IUserSessionRepository {
+func NewUserSessionRepository(db *gorm.DB) usecase.IUserSessionRepository {
 	return &userSessionRepository{db: db}
 }
 

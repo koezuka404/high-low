@@ -3,22 +3,19 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
+
+	"backend/usecase"
 
 	"github.com/redis/go-redis/v9"
 )
 
 const (
-	RateLimitCapacity   = 20
-	RateLimitRefillRate = 5
-	RateLimitTokenCost  = 1
-	RateLimitTTLSec     = 60
+	DefaultCapacity   = 20
+	DefaultRefillRate = 5
+	DefaultTokenCost  = 1
+	DefaultTTLSec     = 60
 )
-
-type IRateLimitRepository interface {
-	ConsumeToken(ctx context.Context, userID uint) (allowed bool, retryAfterSec int, err error)
-}
 
 type rateLimitRepository struct {
 	client redis.UniversalClient
@@ -59,7 +56,7 @@ else
 end
 `
 
-func NewRateLimitRepository(client redis.UniversalClient) IRateLimitRepository {
+func NewRateLimitRepository(client redis.UniversalClient) usecase.RateLimiter {
 	if client == nil {
 		return &noopRateLimitRepository{}
 	}
@@ -69,11 +66,29 @@ func NewRateLimitRepository(client redis.UniversalClient) IRateLimitRepository {
 	}
 }
 
-func (r *rateLimitRepository) ConsumeToken(ctx context.Context, userID uint) (allowed bool, retryAfterSec int, err error) {
-	key := "ratelimit:" + strconv.FormatUint(uint64(userID), 10)
+func (r *rateLimitRepository) ConsumeToken(ctx context.Context, key string, opts *usecase.ConsumeOptions) (allowed bool, retryAfterSec int, err error) {
+	redisKey := "ratelimit:" + key
+	capacity := DefaultCapacity
+	refillRate := DefaultRefillRate
+	tokenCost := DefaultTokenCost
+	ttlSec := DefaultTTLSec
+	if opts != nil {
+		if opts.Capacity != nil {
+			capacity = *opts.Capacity
+		}
+		if opts.RefillRate != nil {
+			refillRate = *opts.RefillRate
+		}
+		if opts.TokenCost != nil {
+			tokenCost = *opts.TokenCost
+		}
+		if opts.TTLSec != nil {
+			ttlSec = *opts.TTLSec
+		}
+	}
 	now := float64(getNowUnix())
-	result, err := r.script.Run(ctx, r.client, []string{key},
-		now, RateLimitCapacity, RateLimitRefillRate, RateLimitTokenCost, RateLimitTTLSec).Result()
+	result, err := r.script.Run(ctx, r.client, []string{redisKey},
+		now, capacity, refillRate, tokenCost, ttlSec).Result()
 	if err != nil {
 		return false, 0, fmt.Errorf("rate limit script: %w", err)
 	}
@@ -101,6 +116,6 @@ var getNowUnix = func() int64 { return time.Now().Unix() }
 
 type noopRateLimitRepository struct{}
 
-func (r *noopRateLimitRepository) ConsumeToken(ctx context.Context, userID uint) (bool, int, error) {
+func (r *noopRateLimitRepository) ConsumeToken(ctx context.Context, key string, opts *usecase.ConsumeOptions) (bool, int, error) {
 	return true, 0, nil
 }

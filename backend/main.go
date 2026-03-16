@@ -32,7 +32,7 @@ func main() {
 	gameRepo := repository.NewGameRepository(database)
 	gameRoundLogRepo := repository.NewGameRoundLogRepository(database)
 
-	userUsecase := usecase.NewUserUsecase(userRepo, sessionRepo)
+	userUsecase := usecase.NewUserUsecase(userRepo, sessionRepo, rateLimitRepo)
 	gameUsecase := usecase.NewGameUsecase(gameRepo, gameRoundLogRepo)
 
 	userController := controller.NewUserController(userUsecase)

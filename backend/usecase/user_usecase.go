@@ -1,34 +1,54 @@
 package usecase
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"backend/model"
-	"backend/repository"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
+type RateLimitError struct {
+	RetryAfterSec int
+}
+
+func (e *RateLimitError) Error() string {
+	return "rate limit exceeded"
+}
+
 type IUserUsecase interface {
-	SignUp(user model.User) (model.ResponseUser, error)
-	Login(user model.User) (string, error)
+	SignUp(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error)
+	Login(ctx context.Context, user model.User, clientIP string) (string, error)
 	Logout(sessionID string) error
 }
 
 type userUsecase struct {
-	ur repository.IUserRepository
-	sr repository.IUserSessionRepository
+	ur IUserRepository
+	sr IUserSessionRepository
+	rl RateLimiter
 }
 
 func NewUserUsecase(
-	ur repository.IUserRepository,
-	sr repository.IUserSessionRepository,
+	ur IUserRepository,
+	sr IUserSessionRepository,
+	rl RateLimiter,
 ) IUserUsecase {
-	return &userUsecase{ur, sr}
+	return &userUsecase{ur: ur, sr: sr, rl: rl}
 }
 
-func (uu *userUsecase) SignUp(user model.User) (model.ResponseUser, error) {
+func (uu *userUsecase) SignUp(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error) {
+	if uu.rl != nil {
+		allowed, retryAfterSec, err := uu.rl.ConsumeToken(ctx, "signup:ip:"+clientIP, nil)
+		if err != nil {
+			return model.ResponseUser{}, fmt.Errorf("rate limit check: %w", err)
+		}
+		if !allowed {
+			return model.ResponseUser{}, &RateLimitError{RetryAfterSec: retryAfterSec}
+		}
+	}
 
 	hash, err := bcrypt.GenerateFromPassword(
 		[]byte(user.Password),
@@ -53,7 +73,23 @@ func (uu *userUsecase) SignUp(user model.User) (model.ResponseUser, error) {
 	}, nil
 }
 
-func (uu *userUsecase) Login(user model.User) (string, error) {
+func (uu *userUsecase) Login(ctx context.Context, user model.User, clientIP string) (string, error) {
+	if uu.rl != nil {
+		allowed, retryAfterSec, err := uu.rl.ConsumeToken(ctx, "login:ip:"+clientIP, nil)
+		if err != nil {
+			return "", fmt.Errorf("rate limit check: %w", err)
+		}
+		if !allowed {
+			return "", &RateLimitError{RetryAfterSec: retryAfterSec}
+		}
+		allowed, retryAfterSec, err = uu.rl.ConsumeToken(ctx, "login:email:"+user.Email, nil)
+		if err != nil {
+			return "", fmt.Errorf("rate limit check: %w", err)
+		}
+		if !allowed {
+			return "", &RateLimitError{RetryAfterSec: retryAfterSec}
+		}
+	}
 
 	storedUser := model.User{}
 

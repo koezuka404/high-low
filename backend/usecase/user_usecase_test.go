@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -74,7 +75,7 @@ func (m *mockUserSessionRepository) RefreshTTL(id string, expiresAt time.Time) e
 }
 
 func TestNewUserUsecase(t *testing.T) {
-	uu := NewUserUsecase(&mockUserRepository{}, &mockUserSessionRepository{})
+	uu := NewUserUsecase(&mockUserRepository{}, &mockUserSessionRepository{}, nil)
 	if uu == nil {
 		t.Fatal("expected usecase, got nil")
 	}
@@ -101,12 +102,12 @@ func TestUserUsecase_SignUp_Success(t *testing.T) {
 	}
 	sr := &mockUserSessionRepository{}
 
-	uu := NewUserUsecase(ur, sr)
+	uu := NewUserUsecase(ur, sr, nil)
 
-	res, err := uu.SignUp(model.User{
+	res, err := uu.SignUp(context.Background(), model.User{
 		Email:    "test@example.com",
 		Password: "password123",
-	})
+	}, "127.0.0.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,12 +129,12 @@ func TestUserUsecase_SignUp_BcryptError(t *testing.T) {
 	}
 	sr := &mockUserSessionRepository{}
 
-	uu := NewUserUsecase(ur, sr)
+	uu := NewUserUsecase(ur, sr, nil)
 
-	_, err := uu.SignUp(model.User{
+	_, err := uu.SignUp(context.Background(), model.User{
 		Email:    "test@example.com",
 		Password: strings.Repeat("a", 73),
-	})
+	}, "127.0.0.1")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -147,12 +148,12 @@ func TestUserUsecase_SignUp_CreateError(t *testing.T) {
 	}
 	sr := &mockUserSessionRepository{}
 
-	uu := NewUserUsecase(ur, sr)
+	uu := NewUserUsecase(ur, sr, nil)
 
-	_, err := uu.SignUp(model.User{
+	_, err := uu.SignUp(context.Background(), model.User{
 		Email:    "test@example.com",
 		Password: "password123",
-	})
+	}, "127.0.0.1")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -177,12 +178,12 @@ func TestUserUsecase_Login_GetUserByEmailError(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(ur, sr)
+	uu := NewUserUsecase(ur, sr, nil)
 
-	_, err := uu.Login(model.User{
+	_, err := uu.Login(context.Background(), model.User{
 		Email:    "test@example.com",
 		Password: "password123",
-	})
+	}, "127.0.0.1")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -212,12 +213,12 @@ func TestUserUsecase_Login_ComparePasswordError(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(ur, sr)
+	uu := NewUserUsecase(ur, sr, nil)
 
-	_, err = uu.Login(model.User{
+	_, err = uu.Login(context.Background(), model.User{
 		Email:    "test@example.com",
 		Password: "wrong-password",
-	})
+	}, "127.0.0.1")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -252,12 +253,12 @@ func TestUserUsecase_Login_CreateSessionError(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(ur, sr)
+	uu := NewUserUsecase(ur, sr, nil)
 
-	_, err = uu.Login(model.User{
+	_, err = uu.Login(context.Background(), model.User{
 		Email:    "test@example.com",
 		Password: "password123",
-	})
+	}, "127.0.0.1")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -299,12 +300,12 @@ func TestUserUsecase_Login_Success(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(ur, sr)
+	uu := NewUserUsecase(ur, sr, nil)
 
-	sessionID, err := uu.Login(model.User{
+	sessionID, err := uu.Login(context.Background(), model.User{
 		Email:    "test@example.com",
 		Password: "password123",
-	})
+	}, "127.0.0.1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +325,7 @@ func TestUserUsecase_Logout_Success(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(&mockUserRepository{}, sr)
+	uu := NewUserUsecase(&mockUserRepository{}, sr, nil)
 
 	err := uu.Logout("session-123")
 	if err != nil {
@@ -342,7 +343,7 @@ func TestUserUsecase_Logout_Error(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(&mockUserRepository{}, sr)
+	uu := NewUserUsecase(&mockUserRepository{}, sr, nil)
 
 	err := uu.Logout("session-123")
 	if err == nil {

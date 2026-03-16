@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"time"
 
-	"backend/repository"
+	"backend/usecase"
 
 	"github.com/labstack/echo/v4"
 )
 
 type SessionTTLRefreshConfig struct {
-	Sessions repository.IUserSessionRepository
+	Sessions usecase.IUserSessionRepository
 	TTL      time.Duration
 	Now      func() time.Time
 }

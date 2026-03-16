@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"backend/model"
-	"backend/repository"
+	"backend/usecase"
 
 	"github.com/labstack/echo/v4"
 )
@@ -13,11 +13,11 @@ import (
 const CtxUserIDKey = "user_id"
 
 type AuthMiddleware struct {
-	Sessions repository.IUserSessionRepository
+	Sessions usecase.IUserSessionRepository
 	Now      func() time.Time
 }
 
-func NewAuthMiddleware(s repository.IUserSessionRepository) *AuthMiddleware {
+func NewAuthMiddleware(s usecase.IUserSessionRepository) *AuthMiddleware {
 	return &AuthMiddleware{
 		Sessions: s,
 		Now:      time.Now,
