@@ -34,13 +34,13 @@ type IUserSessionRepository interface {
 	RefreshTTL(id string, expiresAt time.Time) error
 }
 
-type ConsumeOptions struct {
-	Capacity   *int
-	RefillRate *int
-	TokenCost  *int
-	TTLSec     *int
+type RateLimitParams struct {
+	Capacity   float64
+	RefillRate float64
+	TokenCost  float64
+	TTLSec     int64
 }
 
 type RateLimiter interface {
-	ConsumeToken(ctx context.Context, key string, opts *ConsumeOptions) (allowed bool, retryAfterSec int, err error)
+	ConsumeToken(ctx context.Context, key string, now float64, capacity, refillRate, tokenCost float64, ttlSec int64) (allowed bool, retryAfterSec int, err error)
 }

@@ -26,22 +26,26 @@ type IUserUsecase interface {
 }
 
 type userUsecase struct {
-	ur IUserRepository
-	sr IUserSessionRepository
-	rl RateLimiter
+	ur   IUserRepository
+	sr   IUserSessionRepository
+	rl   RateLimiter
+	rlp  RateLimitParams
 }
 
 func NewUserUsecase(
 	ur IUserRepository,
 	sr IUserSessionRepository,
 	rl RateLimiter,
+	rlp RateLimitParams,
 ) IUserUsecase {
-	return &userUsecase{ur: ur, sr: sr, rl: rl}
+	return &userUsecase{ur: ur, sr: sr, rl: rl, rlp: rlp}
 }
 
 func (uu *userUsecase) SignUp(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error) {
 	if uu.rl != nil {
-		allowed, retryAfterSec, err := uu.rl.ConsumeToken(ctx, "signup:ip:"+clientIP, nil)
+		key := "ratelimit:signup:ip:" + clientIP
+		now := float64(time.Now().Unix())
+		allowed, retryAfterSec, err := uu.rl.ConsumeToken(ctx, key, now, uu.rlp.Capacity, uu.rlp.RefillRate, uu.rlp.TokenCost, uu.rlp.TTLSec)
 		if err != nil {
 			return model.ResponseUser{}, fmt.Errorf("rate limit check: %w", err)
 		}
@@ -75,14 +79,15 @@ func (uu *userUsecase) SignUp(ctx context.Context, user model.User, clientIP str
 
 func (uu *userUsecase) Login(ctx context.Context, user model.User, clientIP string) (string, error) {
 	if uu.rl != nil {
-		allowed, retryAfterSec, err := uu.rl.ConsumeToken(ctx, "login:ip:"+clientIP, nil)
+		now := float64(time.Now().Unix())
+		allowed, retryAfterSec, err := uu.rl.ConsumeToken(ctx, "ratelimit:login:ip:"+clientIP, now, uu.rlp.Capacity, uu.rlp.RefillRate, uu.rlp.TokenCost, uu.rlp.TTLSec)
 		if err != nil {
 			return "", fmt.Errorf("rate limit check: %w", err)
 		}
 		if !allowed {
 			return "", &RateLimitError{RetryAfterSec: retryAfterSec}
 		}
-		allowed, retryAfterSec, err = uu.rl.ConsumeToken(ctx, "login:email:"+user.Email, nil)
+		allowed, retryAfterSec, err = uu.rl.ConsumeToken(ctx, "ratelimit:login:email:"+user.Email, now, uu.rlp.Capacity, uu.rlp.RefillRate, uu.rlp.TokenCost, uu.rlp.TTLSec)
 		if err != nil {
 			return "", fmt.Errorf("rate limit check: %w", err)
 		}

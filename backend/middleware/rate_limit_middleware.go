@@ -17,6 +17,7 @@ type RateLimitConfig struct {
 	RateLimitRepo usecase.RateLimiter
 	Sessions      usecase.IUserSessionRepository
 	Now           func() time.Time
+	Params        usecase.RateLimitParams
 }
 
 func NewRateLimitMiddleware(cfg RateLimitConfig) echo.MiddlewareFunc {
@@ -33,8 +34,9 @@ func NewRateLimitMiddleware(cfg RateLimitConfig) echo.MiddlewareFunc {
 			if ctx == nil {
 				ctx = context.Background()
 			}
-			key := "user:" + strconv.FormatUint(uint64(userID), 10)
-			allowed, retryAfterSec, err := cfg.RateLimitRepo.ConsumeToken(ctx, key, nil)
+			key := "ratelimit:user:" + strconv.FormatUint(uint64(userID), 10)
+			now := float64(cfg.Now().Unix())
+			allowed, retryAfterSec, err := cfg.RateLimitRepo.ConsumeToken(ctx, key, now, cfg.Params.Capacity, cfg.Params.RefillRate, cfg.Params.TokenCost, cfg.Params.TTLSec)
 			if err != nil {
 				return c.JSON(http.StatusInternalServerError, map[string]any{
 					"success": false,

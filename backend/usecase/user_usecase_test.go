@@ -74,8 +74,15 @@ func (m *mockUserSessionRepository) RefreshTTL(id string, expiresAt time.Time) e
 	return m.refreshTTLFn(id, expiresAt)
 }
 
+var testRateLimitParams = RateLimitParams{
+	Capacity:   20,
+	RefillRate: 5,
+	TokenCost:  1,
+	TTLSec:     60,
+}
+
 func TestNewUserUsecase(t *testing.T) {
-	uu := NewUserUsecase(&mockUserRepository{}, &mockUserSessionRepository{}, nil)
+	uu := NewUserUsecase(&mockUserRepository{}, &mockUserSessionRepository{}, nil, testRateLimitParams)
 	if uu == nil {
 		t.Fatal("expected usecase, got nil")
 	}
@@ -102,7 +109,7 @@ func TestUserUsecase_SignUp_Success(t *testing.T) {
 	}
 	sr := &mockUserSessionRepository{}
 
-	uu := NewUserUsecase(ur, sr, nil)
+	uu := NewUserUsecase(ur, sr, nil, testRateLimitParams)
 
 	res, err := uu.SignUp(context.Background(), model.User{
 		Email:    "test@example.com",
@@ -129,7 +136,7 @@ func TestUserUsecase_SignUp_BcryptError(t *testing.T) {
 	}
 	sr := &mockUserSessionRepository{}
 
-	uu := NewUserUsecase(ur, sr, nil)
+	uu := NewUserUsecase(ur, sr, nil, testRateLimitParams)
 
 	_, err := uu.SignUp(context.Background(), model.User{
 		Email:    "test@example.com",
@@ -148,7 +155,7 @@ func TestUserUsecase_SignUp_CreateError(t *testing.T) {
 	}
 	sr := &mockUserSessionRepository{}
 
-	uu := NewUserUsecase(ur, sr, nil)
+	uu := NewUserUsecase(ur, sr, nil, testRateLimitParams)
 
 	_, err := uu.SignUp(context.Background(), model.User{
 		Email:    "test@example.com",
@@ -178,7 +185,7 @@ func TestUserUsecase_Login_GetUserByEmailError(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(ur, sr, nil)
+	uu := NewUserUsecase(ur, sr, nil, testRateLimitParams)
 
 	_, err := uu.Login(context.Background(), model.User{
 		Email:    "test@example.com",
@@ -213,7 +220,7 @@ func TestUserUsecase_Login_ComparePasswordError(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(ur, sr, nil)
+	uu := NewUserUsecase(ur, sr, nil, testRateLimitParams)
 
 	_, err = uu.Login(context.Background(), model.User{
 		Email:    "test@example.com",
@@ -253,7 +260,7 @@ func TestUserUsecase_Login_CreateSessionError(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(ur, sr, nil)
+	uu := NewUserUsecase(ur, sr, nil, testRateLimitParams)
 
 	_, err = uu.Login(context.Background(), model.User{
 		Email:    "test@example.com",
@@ -300,7 +307,7 @@ func TestUserUsecase_Login_Success(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(ur, sr, nil)
+	uu := NewUserUsecase(ur, sr, nil, testRateLimitParams)
 
 	sessionID, err := uu.Login(context.Background(), model.User{
 		Email:    "test@example.com",
@@ -325,7 +332,7 @@ func TestUserUsecase_Logout_Success(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(&mockUserRepository{}, sr, nil)
+	uu := NewUserUsecase(&mockUserRepository{}, sr, nil, testRateLimitParams)
 
 	err := uu.Logout("session-123")
 	if err != nil {
@@ -343,7 +350,7 @@ func TestUserUsecase_Logout_Error(t *testing.T) {
 		},
 	}
 
-	uu := NewUserUsecase(&mockUserRepository{}, sr, nil)
+	uu := NewUserUsecase(&mockUserRepository{}, sr, nil, testRateLimitParams)
 
 	err := uu.Logout("session-123")
 	if err == nil {

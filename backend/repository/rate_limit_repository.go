@@ -3,18 +3,10 @@ package repository
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"backend/usecase"
 
 	"github.com/redis/go-redis/v9"
-)
-
-const (
-	DefaultCapacity   = 20
-	DefaultRefillRate = 5
-	DefaultTokenCost  = 1
-	DefaultTTLSec     = 60
 )
 
 type rateLimitRepository struct {
@@ -66,28 +58,8 @@ func NewRateLimitRepository(client redis.UniversalClient) usecase.RateLimiter {
 	}
 }
 
-func (r *rateLimitRepository) ConsumeToken(ctx context.Context, key string, opts *usecase.ConsumeOptions) (allowed bool, retryAfterSec int, err error) {
-	redisKey := "ratelimit:" + key
-	capacity := DefaultCapacity
-	refillRate := DefaultRefillRate
-	tokenCost := DefaultTokenCost
-	ttlSec := DefaultTTLSec
-	if opts != nil {
-		if opts.Capacity != nil {
-			capacity = *opts.Capacity
-		}
-		if opts.RefillRate != nil {
-			refillRate = *opts.RefillRate
-		}
-		if opts.TokenCost != nil {
-			tokenCost = *opts.TokenCost
-		}
-		if opts.TTLSec != nil {
-			ttlSec = *opts.TTLSec
-		}
-	}
-	now := float64(getNowUnix())
-	result, err := r.script.Run(ctx, r.client, []string{redisKey},
+func (r *rateLimitRepository) ConsumeToken(ctx context.Context, key string, now float64, capacity, refillRate, tokenCost float64, ttlSec int64) (allowed bool, retryAfterSec int, err error) {
+	result, err := r.script.Run(ctx, r.client, []string{key},
 		now, capacity, refillRate, tokenCost, ttlSec).Result()
 	if err != nil {
 		return false, 0, fmt.Errorf("rate limit script: %w", err)
@@ -112,10 +84,8 @@ func toInt64(v interface{}) (int64, bool) {
 	}
 }
 
-var getNowUnix = func() int64 { return time.Now().Unix() }
-
 type noopRateLimitRepository struct{}
 
-func (r *noopRateLimitRepository) ConsumeToken(ctx context.Context, key string, opts *usecase.ConsumeOptions) (bool, int, error) {
+func (r *noopRateLimitRepository) ConsumeToken(ctx context.Context, key string, now float64, capacity, refillRate, tokenCost float64, ttlSec int64) (bool, int, error) {
 	return true, 0, nil
 }
