@@ -21,6 +21,7 @@ type mockGameUsecase struct {
 	startFn      func(userID uint, ver *int64) (*model.Game, error)
 	selectFn     func(userID uint, sessionID uint, ver int64) (*model.Game, *model.Round, error)
 	cheatFn      func(userID uint, ver int64) (*model.Game, error)
+	resetSetFn   func(userID uint, ver int64) (*model.Game, error)
 	changeModeFn func(userID uint, mode model.GameMode, ver int64) (*model.Game, error)
 	statusFn     func(userID uint) (*model.Game, error)
 }
@@ -45,6 +46,12 @@ func (m *mockGameUsecase) Cheat(userID uint, ver int64) (*model.Game, error) {
 		return &model.Game{ID: 1, UserID: userID, Status: model.GameStatusInProgress, Mode: model.GameModeDealer, CheatReserved: true, CheatCard: &card, Ver: ver + 1}, nil
 	}
 	return m.cheatFn(userID, ver)
+}
+func (m *mockGameUsecase) ResetSet(userID uint, ver int64) (*model.Game, error) {
+	if m.resetSetFn == nil {
+		return &model.Game{ID: 1, UserID: userID, Status: model.GameStatusInProgress, Mode: model.GameModePlayer, PlayerWins: 0, DealerWins: 0, Ver: ver + 1}, nil
+	}
+	return m.resetSetFn(userID, ver)
 }
 func (m *mockGameUsecase) ChangeMode(userID uint, mode model.GameMode, ver int64) (*model.Game, error) {
 	if m.changeModeFn == nil {

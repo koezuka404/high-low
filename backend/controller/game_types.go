@@ -39,6 +39,16 @@ type CheatResponse struct {
 	Ver           int64 `json:"ver"`
 }
 
+type ResetSetRequest struct {
+	Ver int64 `json:"ver"`
+}
+
+type ResetSetResponse struct {
+	Status model.GameStatus `json:"status"`
+	Mode   model.GameMode   `json:"mode"`
+	Ver    int64            `json:"ver"`
+}
+
 type ChangeModeRequest struct {
 	Mode model.GameMode `json:"mode"`
 	Ver  int64          `json:"ver"`
@@ -55,6 +65,7 @@ type HistoryItem struct {
 	DealerCard       int            `json:"dealer_card"`
 	Result           model.RoundResult `json:"result"`
 	ConsecutiveDraws int            `json:"consecutive_draws"`
+	CheatUsed        bool           `json:"cheat_used"`
 }
 
 type StatusResponse struct {
@@ -64,5 +75,7 @@ type StatusResponse struct {
 	PlayerWins int              `json:"player_wins"`
 	DealerWins int              `json:"dealer_wins"`
 	Ver        int64            `json:"ver"`
+	Cheated    bool             `json:"cheated"`
+	CheatReserved bool          `json:"cheat_reserved"`
 	History    []HistoryItem    `json:"history"`
 }

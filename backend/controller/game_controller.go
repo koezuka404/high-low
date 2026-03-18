@@ -16,6 +16,7 @@ type IGameController interface {
 	Start(c echo.Context) error
 	Select(c echo.Context) error
 	Cheat(c echo.Context) error
+	ResetSet(c echo.Context) error
 	ChangeMode(c echo.Context) error
 	Status(c echo.Context) error
 }
@@ -107,6 +108,29 @@ func (gc *gameController) Cheat(c echo.Context) error {
 	})
 }
 
+func (gc *gameController) ResetSet(c echo.Context) error {
+	userID, err := getUserID(c)
+	if err != nil {
+		return respondError(c, http.StatusUnauthorized, "unauthorized", err.Error())
+	}
+	var req ResetSetRequest
+	if err := c.Bind(&req); err != nil {
+		return respondError(c, http.StatusBadRequest, "invalid_json", err.Error())
+	}
+	if req.Ver == 0 {
+		return respondError(c, http.StatusBadRequest, "invalid_input", "ver is required")
+	}
+	game, err := gc.gu.ResetSet(userID, req.Ver)
+	if err != nil {
+		return handleGameError(c, err)
+	}
+	return respondSuccess(c, http.StatusOK, ResetSetResponse{
+		Status: game.Status,
+		Mode:   game.Mode,
+		Ver:    game.Ver,
+	})
+}
+
 func (gc *gameController) ChangeMode(c echo.Context) error {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -146,6 +170,8 @@ func (gc *gameController) Status(c echo.Context) error {
 			PlayerWins: 0,
 			DealerWins: 0,
 			Ver:        0,
+			Cheated:    false,
+			CheatReserved: false,
 			History:    []HistoryItem{},
 		})
 	}
@@ -157,6 +183,7 @@ func (gc *gameController) Status(c echo.Context) error {
 			DealerCard:       r.DealerCard,
 			Result:           r.Result,
 			ConsecutiveDraws: r.ConsecutiveDraws,
+			CheatUsed:        r.CheatUsed,
 		})
 	}
 	return respondSuccess(c, http.StatusOK, StatusResponse{
@@ -166,6 +193,8 @@ func (gc *gameController) Status(c echo.Context) error {
 		PlayerWins: game.PlayerWins,
 		DealerWins: game.DealerWins,
 		Ver:        game.Ver,
+		Cheated:    game.Cheated,
+		CheatReserved: game.CheatReserved,
 		History:    history,
 	})
 }

@@ -20,5 +20,6 @@ func RegisterGameRoutes(
 	g.POST("/start", gc.Start, csrfMW, ttlMW)
 	g.POST("/select", gc.Select, csrfMW, ttlMW)
 	g.POST("/cheat", gc.Cheat, csrfMW, ttlMW)
+	g.POST("/reset", gc.ResetSet, csrfMW, ttlMW)
 	g.POST("/mode", gc.ChangeMode, csrfMW, ttlMW)
 }

@@ -89,7 +89,7 @@ func (uc *userController) Login(c echo.Context) error {
 		sessionCookie.Domain = d
 	}
 	sessionCookie.HttpOnly = true
-	sessionCookie.Secure = true
+	sessionCookie.Secure = cookieSecure()
 	sessionCookie.SameSite = http.SameSiteLaxMode
 	c.SetCookie(sessionCookie)
 
@@ -104,7 +104,7 @@ func (uc *userController) Login(c echo.Context) error {
 		csrfCookie.Domain = d
 	}
 	csrfCookie.HttpOnly = false
-	csrfCookie.Secure = true
+	csrfCookie.Secure = cookieSecure()
 	csrfCookie.SameSite = http.SameSiteLaxMode
 	c.SetCookie(csrfCookie)
 
@@ -131,7 +131,7 @@ func (uc *userController) Logout(c echo.Context) error {
 		sessionCookie.Domain = d
 	}
 	sessionCookie.HttpOnly = true
-	sessionCookie.Secure = true
+	sessionCookie.Secure = cookieSecure()
 	sessionCookie.SameSite = http.SameSiteLaxMode
 	c.SetCookie(sessionCookie)
 
@@ -144,7 +144,7 @@ func (uc *userController) Logout(c echo.Context) error {
 		csrfCookie.Domain = d
 	}
 	csrfCookie.HttpOnly = false
-	csrfCookie.Secure = true
+	csrfCookie.Secure = cookieSecure()
 	csrfCookie.SameSite = http.SameSiteLaxMode
 	c.SetCookie(csrfCookie)
 
@@ -159,4 +159,10 @@ func generateCSRFToken() string {
 		return hex.EncodeToString([]byte(time.Now().String()))
 	}
 	return hex.EncodeToString(b)
+}
+
+func cookieSecure() bool {
+	// Spec requires Secure cookies in production, but local http dev cannot use Secure cookies.
+	// Set COOKIE_SECURE=false to allow local development.
+	return os.Getenv("COOKIE_SECURE") != "false"
 }

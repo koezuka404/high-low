@@ -18,6 +18,7 @@ type IGameUsecase interface {
 	Start(userID uint, ver *int64) (*model.Game, error)
 	Select(userID uint, sessionID uint, ver int64) (*model.Game, *model.Round, error)
 	Cheat(userID uint, ver int64) (*model.Game, error)
+	ResetSet(userID uint, ver int64) (*model.Game, error)
 	ChangeMode(userID uint, mode model.GameMode, ver int64) (*model.Game, error)
 	Status(userID uint) (*model.Game, error)
 }
@@ -245,6 +246,43 @@ func (gu *gameUsecase) Cheat(userID uint, ver int64) (*model.Game, error) {
 	game.CheatCard = &cheatCard
 	game.Cheated = true
 	game.CheatReserved = true
+	game.Ver = game.Ver + 1
+	game.UpdatedAt = time.Now()
+	if err := gu.gr.UpdateWithVersion(game, ver); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errVersionConflict
+		}
+		return nil, err
+	}
+	return game, nil
+}
+
+func (gu *gameUsecase) ResetSet(userID uint, ver int64) (*model.Game, error) {
+	game, err := gu.gr.GetGameByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if game == nil {
+		return nil, errSessionNotFound
+	}
+	if game.Ver != ver {
+		return nil, errVersionConflict
+	}
+	if err := gu.rr.DeleteByGameID(game.ID); err != nil {
+		return nil, err
+	}
+
+	// Reset current set progress. Keep the current mode.
+	game.Status = model.GameStatusInProgress
+	game.PlayerWins = 0
+	game.DealerWins = 0
+	game.ConsecutiveDraws = 0
+	game.Cheated = false
+	game.CheatReserved = false
+	game.CheatCard = nil
+	game.PlayerUsedCards = model.IntSlice{}
+	game.DealerUsedCards = model.IntSlice{}
+	game.Rounds = []model.Round{}
 	game.Ver = game.Ver + 1
 	game.UpdatedAt = time.Now()
 	if err := gu.gr.UpdateWithVersion(game, ver); err != nil {

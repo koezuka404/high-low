@@ -41,7 +41,8 @@ type mockGameController struct{}
 
 func (m *mockGameController) Start(c echo.Context) error       { return c.NoContent(http.StatusOK) }
 func (m *mockGameController) Select(c echo.Context) error      { return c.NoContent(http.StatusOK) }
-func (m *mockGameController) Cheat(c echo.Context) error      { return c.NoContent(http.StatusOK) }
+func (m *mockGameController) Cheat(c echo.Context) error       { return c.NoContent(http.StatusOK) }
+func (m *mockGameController) ResetSet(c echo.Context) error    { return c.NoContent(http.StatusOK) }
 func (m *mockGameController) ChangeMode(c echo.Context) error  { return c.NoContent(http.StatusOK) }
 func (m *mockGameController) Status(c echo.Context) error     { return c.NoContent(http.StatusOK) }
 
