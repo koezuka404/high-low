@@ -42,24 +42,11 @@ func NewUserUsecase(
 }
 
 func (uu *userUsecase) SignUp(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error) {
-	emailNorm, err := NormalizeEmailForRateLimit(user.Email)
+	emailNorm, err := ConsumeAuthRateLimit(ctx, uu.rl, uu.rlp, clientIP, user.Email, "ratelimit:signup:ip:", "ratelimit:signup:email:")
 	if err != nil {
 		return model.ResponseUser{}, err
 	}
 	user.Email = emailNorm
-
-	if uu.rl != nil {
-		ipSuffix, ipCost := RateLimitIPKeyAndCost(clientIP, uu.rlp.TokenCost)
-		key := "ratelimit:signup:ip:" + ipSuffix
-		now := float64(time.Now().Unix())
-		allowed, retryAfterSec, err := uu.rl.ConsumeToken(ctx, key, now, uu.rlp.Capacity, uu.rlp.RefillRate, ipCost, uu.rlp.TTLSec)
-		if err != nil {
-			return model.ResponseUser{}, fmt.Errorf("rate limit check: %w", err)
-		}
-		if !allowed {
-			return model.ResponseUser{}, &RateLimitError{RetryAfterSec: retryAfterSec}
-		}
-	}
 
 	hash, err := bcrypt.GenerateFromPassword(
 		[]byte(user.Password),
@@ -85,30 +72,11 @@ func (uu *userUsecase) SignUp(ctx context.Context, user model.User, clientIP str
 }
 
 func (uu *userUsecase) Login(ctx context.Context, user model.User, clientIP string) (string, error) {
-	emailNorm, err := NormalizeEmailForRateLimit(user.Email)
+	emailNorm, err := ConsumeAuthRateLimit(ctx, uu.rl, uu.rlp, clientIP, user.Email, "ratelimit:login:ip:", "ratelimit:login:email:")
 	if err != nil {
 		return "", err
 	}
 	user.Email = emailNorm
-
-	if uu.rl != nil {
-		now := float64(time.Now().Unix())
-		ipSuffix, ipCost := RateLimitIPKeyAndCost(clientIP, uu.rlp.TokenCost)
-		allowed, retryAfterSec, err := uu.rl.ConsumeToken(ctx, "ratelimit:login:ip:"+ipSuffix, now, uu.rlp.Capacity, uu.rlp.RefillRate, ipCost, uu.rlp.TTLSec)
-		if err != nil {
-			return "", fmt.Errorf("rate limit check: %w", err)
-		}
-		if !allowed {
-			return "", &RateLimitError{RetryAfterSec: retryAfterSec}
-		}
-		allowed, retryAfterSec, err = uu.rl.ConsumeToken(ctx, "ratelimit:login:email:"+emailNorm, now, uu.rlp.Capacity, uu.rlp.RefillRate, uu.rlp.TokenCost, uu.rlp.TTLSec)
-		if err != nil {
-			return "", fmt.Errorf("rate limit check: %w", err)
-		}
-		if !allowed {
-			return "", &RateLimitError{RetryAfterSec: retryAfterSec}
-		}
-	}
 
 	storedUser := model.User{}
 

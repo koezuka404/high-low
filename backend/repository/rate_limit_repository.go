@@ -48,7 +48,6 @@ else
 end
 `
 
-// NewRateLimitRepository は Redis クライアントが nil のとき nil を返す（noop は使わない）。
 func NewRateLimitRepository(client redis.UniversalClient) usecase.RateLimiter {
 	if client == nil {
 		return nil

@@ -1,10 +1,12 @@
 package usecase
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"regexp"
 	"strings"
+	"time"
 )
 
 const rateLimitIPKeyUnknown = "unknown"
@@ -60,4 +62,35 @@ func RateLimitIPKeyAndCost(raw string, defaultTokenCost float64) (suffix string,
 	}
 
 	return rateLimitIPKeyUnknown, 0
+}
+
+func ConsumeAuthRateLimit(ctx context.Context, rl RateLimiter, rlp RateLimitParams, rawIP string, rawEmail string, ipKeyPrefix string, emailKeyPrefix string) (normalizedEmail string, err error) {
+	emailNorm, err := NormalizeEmailForRateLimit(rawEmail)
+	if err != nil {
+		return "", err
+	}
+	if rl == nil {
+		return emailNorm, nil
+	}
+
+	now := float64(time.Now().Unix())
+
+	ipSuffix, ipCost := RateLimitIPKeyAndCost(rawIP, rlp.TokenCost)
+	allowed, retryAfterSec, err := rl.ConsumeToken(ctx, ipKeyPrefix+ipSuffix, now, rlp.Capacity, rlp.RefillRate, ipCost, rlp.TTLSec)
+	if err != nil {
+		return "", fmt.Errorf("rate limit check: %w", err)
+	}
+	if !allowed {
+		return "", &RateLimitError{RetryAfterSec: retryAfterSec}
+	}
+
+	allowed, retryAfterSec, err = rl.ConsumeToken(ctx, emailKeyPrefix+emailNorm, now, rlp.Capacity, rlp.RefillRate, rlp.TokenCost, rlp.TTLSec)
+	if err != nil {
+		return "", fmt.Errorf("rate limit check: %w", err)
+	}
+	if !allowed {
+		return "", &RateLimitError{RetryAfterSec: retryAfterSec}
+	}
+
+	return emailNorm, nil
 }
