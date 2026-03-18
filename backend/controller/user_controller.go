@@ -71,6 +71,9 @@ func (uc *userController) Login(c echo.Context) error {
 			return respondError(c, http.StatusTooManyRequests, "too_many_requests", "rate limit exceeded")
 		}
 		msg := err.Error()
+		if msg == "invalid credentials" {
+			return respondError(c, http.StatusUnauthorized, "unauthorized", msg)
+		}
 		if msg == "email is required" || msg == "invalid email format" || msg == "password is required" || msg == "password must be at least 8 characters" {
 			return respondError(c, http.StatusBadRequest, "invalid_input", msg)
 		}

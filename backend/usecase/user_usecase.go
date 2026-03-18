@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"backend/model"
@@ -81,14 +81,14 @@ func (uu *userUsecase) Login(ctx context.Context, user model.User, clientIP stri
 	storedUser := model.User{}
 
 	if err := uu.ur.GetUserByEmail(&storedUser, user.Email); err != nil {
-		return "", err
+		return "", errors.New("invalid credentials")
 	}
 
 	if err := bcrypt.CompareHashAndPassword(
 		[]byte(storedUser.Password),
 		[]byte(user.Password),
 	); err != nil {
-		return "", err
+		return "", errors.New("invalid credentials")
 	}
 
 	sessionID := uuid.NewString()

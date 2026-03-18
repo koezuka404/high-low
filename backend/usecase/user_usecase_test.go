@@ -194,7 +194,7 @@ func TestUserUsecase_Login_GetUserByEmailError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if err.Error() != "user not found" {
+	if err.Error() != "invalid credentials" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
