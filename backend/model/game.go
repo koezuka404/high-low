@@ -44,10 +44,7 @@ func (s IntSlice) Value() (driver.Value, error) {
 	if len(s) == 0 {
 		return "[]", nil
 	}
-	b, err := json.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
+	b, _ := json.Marshal(s)
 	return string(b), nil
 }
 

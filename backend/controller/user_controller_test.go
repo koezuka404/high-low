@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"backend/model"
+	"backend/usecase"
 
 	"github.com/labstack/echo/v4"
 )
@@ -36,6 +37,37 @@ func (m *mockUserUsecase) Login(ctx context.Context, user model.User, clientIP s
 }
 
 func (m *mockUserUsecase) Logout(sessionID string) error {
+	if m.logoutFn == nil {
+		return nil
+	}
+	return m.logoutFn(sessionID)
+}
+
+type captureIPUsecase struct {
+	gotIP string
+
+	signUpFn func(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error)
+	loginFn  func(ctx context.Context, user model.User, clientIP string) (string, error)
+	logoutFn func(sessionID string) error
+}
+
+func (m *captureIPUsecase) SignUp(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error) {
+	m.gotIP = clientIP
+	if m.signUpFn == nil {
+		return model.ResponseUser{}, nil
+	}
+	return m.signUpFn(ctx, user, clientIP)
+}
+
+func (m *captureIPUsecase) Login(ctx context.Context, user model.User, clientIP string) (string, error) {
+	m.gotIP = clientIP
+	if m.loginFn == nil {
+		return "", nil
+	}
+	return m.loginFn(ctx, user, clientIP)
+}
+
+func (m *captureIPUsecase) Logout(sessionID string) error {
 	if m.logoutFn == nil {
 		return nil
 	}
@@ -173,6 +205,110 @@ func TestUserController_SignUp_InternalServerError(t *testing.T) {
 	}
 }
 
+func TestUserController_SignUp_TooManyRequests(t *testing.T) {
+	e := echo.New()
+	body := `{"email":"test@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	mockUU := &mockUserUsecase{
+		signUpFn: func(user model.User) (model.ResponseUser, error) {
+			return model.ResponseUser{}, &usecase.RateLimitError{RetryAfterSec: 5}
+		},
+	}
+	uc := &userController{uu: mockUU}
+	if err := uc.SignUp(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d", rec.Code)
+	}
+	if rec.Header().Get("Retry-After") != "5" {
+		t.Fatalf("expected Retry-After=5, got %q", rec.Header().Get("Retry-After"))
+	}
+}
+
+func TestUserController_SignUp_ClientIP_FallbackToRemoteAddr(t *testing.T) {
+	e := echo.New()
+	body := `{"email":"test@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.RemoteAddr = "203.0.113.9:12345"
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	uu := &captureIPUsecase{
+		signUpFn: func(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error) {
+			return model.ResponseUser{ID: 1, Email: user.Email}, nil
+		},
+	}
+	uc := &userController{uu: uu}
+	if err := uc.SignUp(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
+	}
+	if uu.gotIP != "203.0.113.9" {
+		t.Fatalf("expected clientIP=%q got=%q", "203.0.113.9", uu.gotIP)
+	}
+}
+
+func TestUserController_SignUp_ClientIP_UsesRealIPHeader(t *testing.T) {
+	e := echo.New()
+	body := `{"email":"test@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("X-Real-IP", "198.51.100.77")
+	req.RemoteAddr = "203.0.113.9:12345"
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	uu := &captureIPUsecase{
+		signUpFn: func(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error) {
+			return model.ResponseUser{ID: 1, Email: user.Email}, nil
+		},
+	}
+	uc := &userController{uu: uu}
+	if err := uc.SignUp(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
+	}
+	if uu.gotIP != "198.51.100.77" {
+		t.Fatalf("expected clientIP=%q got=%q", "198.51.100.77", uu.gotIP)
+	}
+}
+
+func TestUserController_SignUp_ClientIP_EmptyWhenNoHeadersAndNoRemoteAddr(t *testing.T) {
+	e := echo.New()
+	body := `{"email":"test@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/signup", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.RemoteAddr = ""
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	uu := &captureIPUsecase{
+		signUpFn: func(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error) {
+			return model.ResponseUser{ID: 1, Email: user.Email}, nil
+		},
+	}
+	uc := &userController{uu: uu}
+	if err := uc.SignUp(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d", rec.Code)
+	}
+	if uu.gotIP != "" {
+		t.Fatalf("expected empty clientIP, got %q", uu.gotIP)
+	}
+}
+
 func TestUserController_Login_BindError(t *testing.T) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(`{"email":`))
@@ -249,6 +385,132 @@ func TestUserController_Login_InternalServerError(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("expected %d, got %d", http.StatusInternalServerError, rec.Code)
+	}
+}
+
+func TestUserController_Login_Unauthorized_InvalidCredentials(t *testing.T) {
+	e := echo.New()
+	body := `{"email":"test@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	mockUU := &mockUserUsecase{
+		loginFn: func(user model.User) (string, error) {
+			return "", errors.New("invalid credentials")
+		},
+	}
+	uc := &userController{uu: mockUU}
+	if err := uc.Login(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec.Code)
+	}
+}
+
+func TestUserController_Login_TooManyRequests(t *testing.T) {
+	e := echo.New()
+	body := `{"email":"test@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	mockUU := &mockUserUsecase{
+		loginFn: func(user model.User) (string, error) {
+			return "", &usecase.RateLimitError{RetryAfterSec: 2}
+		},
+	}
+	uc := &userController{uu: mockUU}
+	if err := uc.Login(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d", rec.Code)
+	}
+	if rec.Header().Get("Retry-After") != "2" {
+		t.Fatalf("expected Retry-After=2, got %q", rec.Header().Get("Retry-After"))
+	}
+}
+
+func TestUserController_Login_ClientIP_FallbackToRemoteAddr(t *testing.T) {
+	e := echo.New()
+	body := `{"email":"test@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.RemoteAddr = "203.0.113.10:2222"
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	uu := &captureIPUsecase{
+		loginFn: func(ctx context.Context, user model.User, clientIP string) (string, error) {
+			return "session-123", nil
+		},
+	}
+	uc := &userController{uu: uu}
+	if err := uc.Login(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if uu.gotIP != "203.0.113.10" {
+		t.Fatalf("expected clientIP=%q got=%q", "203.0.113.10", uu.gotIP)
+	}
+}
+
+func TestUserController_Login_ClientIP_UsesRealIPHeader(t *testing.T) {
+	e := echo.New()
+	body := `{"email":"test@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set("X-Real-IP", "198.51.100.88")
+	req.RemoteAddr = "203.0.113.10:2222"
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	uu := &captureIPUsecase{
+		loginFn: func(ctx context.Context, user model.User, clientIP string) (string, error) {
+			return "session-123", nil
+		},
+	}
+	uc := &userController{uu: uu}
+	if err := uc.Login(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if uu.gotIP != "198.51.100.88" {
+		t.Fatalf("expected clientIP=%q got=%q", "198.51.100.88", uu.gotIP)
+	}
+}
+
+func TestUserController_Login_ClientIP_EmptyWhenNoHeadersAndNoRemoteAddr(t *testing.T) {
+	e := echo.New()
+	body := `{"email":"test@example.com","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.RemoteAddr = ""
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	uu := &captureIPUsecase{
+		loginFn: func(ctx context.Context, user model.User, clientIP string) (string, error) {
+			return "session-123", nil
+		},
+	}
+	uc := &userController{uu: uu}
+	if err := uc.Login(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	if uu.gotIP != "" {
+		t.Fatalf("expected empty clientIP, got %q", uu.gotIP)
 	}
 }
 

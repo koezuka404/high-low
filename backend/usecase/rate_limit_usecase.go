@@ -17,8 +17,8 @@ var (
 	rateLimitEmailPattern  = regexp.MustCompile(`^` + emailLocalPartPattern + `@` + emailDomainPartPattern + `$`)
 )
 
-func NormalizeEmailForRateLimit(email string) (string, error) {
-	s := strings.TrimSpace(email)
+func EmailKeyPartForAuthRateLimit(rawEmail string) (string, error) {
+	s := strings.TrimSpace(rawEmail)
 	if s == "" {
 		return "", fmt.Errorf("email is required")
 	}
@@ -31,11 +31,11 @@ func NormalizeEmailForRateLimit(email string) (string, error) {
 	return strings.ToLower(s), nil
 }
 
-func RateLimitIPKeyAndCost(raw string, defaultTokenCost float64) (suffix string, tokenCost float64) {
+func IPKeyPartAndCostForAuthRateLimit(rawIP string, defaultTokenCost float64) (keyPart string, tokenCost float64) {
 	if defaultTokenCost < 0 {
 		defaultTokenCost = 0
 	}
-	s := strings.TrimSpace(raw)
+	s := strings.TrimSpace(rawIP)
 	if s == "" {
 		return rateLimitIPKeyUnknown, 0
 	}
@@ -52,9 +52,6 @@ func RateLimitIPKeyAndCost(raw string, defaultTokenCost float64) (suffix string,
 	host := s
 	if h, _, err := net.SplitHostPort(s); err == nil {
 		host = h
-		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") && len(host) >= 2 {
-			host = host[1 : len(host)-1]
-		}
 	}
 
 	if ip := net.ParseIP(host); ip != nil {
@@ -64,8 +61,8 @@ func RateLimitIPKeyAndCost(raw string, defaultTokenCost float64) (suffix string,
 	return rateLimitIPKeyUnknown, 0
 }
 
-func ConsumeAuthRateLimit(ctx context.Context, rl RateLimiter, rlp RateLimitParams, rawIP string, rawEmail string, ipKeyPrefix string, emailKeyPrefix string) (normalizedEmail string, err error) {
-	emailNorm, err := NormalizeEmailForRateLimit(rawEmail)
+func EnforceAuthRateLimit(ctx context.Context, rl RateLimiter, rlp RateLimitParams, rawIP string, rawEmail string, ipKeyPrefix string, emailKeyPrefix string) (emailKeyPart string, err error) {
+	emailNorm, err := EmailKeyPartForAuthRateLimit(rawEmail)
 	if err != nil {
 		return "", err
 	}
@@ -75,7 +72,7 @@ func ConsumeAuthRateLimit(ctx context.Context, rl RateLimiter, rlp RateLimitPara
 
 	now := float64(time.Now().Unix())
 
-	ipSuffix, ipCost := RateLimitIPKeyAndCost(rawIP, rlp.TokenCost)
+	ipSuffix, ipCost := IPKeyPartAndCostForAuthRateLimit(rawIP, rlp.TokenCost)
 	allowed, retryAfterSec, err := rl.ConsumeToken(ctx, ipKeyPrefix+ipSuffix, now, rlp.Capacity, rlp.RefillRate, ipCost, rlp.TTLSec)
 	if err != nil {
 		return "", fmt.Errorf("rate limit check: %w", err)

@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -31,9 +30,6 @@ func NewRateLimitMiddleware(cfg RateLimitConfig) echo.MiddlewareFunc {
 			}
 			userID := getUserIDForRateLimit(c, cfg.Sessions, cfg.Now)
 			ctx := c.Request().Context()
-			if ctx == nil {
-				ctx = context.Background()
-			}
 			key := "ratelimit:user:" + strconv.FormatUint(uint64(userID), 10)
 			now := float64(cfg.Now().Unix())
 			allowed, retryAfterSec, err := cfg.RateLimitRepo.ConsumeToken(ctx, key, now, cfg.Params.Capacity, cfg.Params.RefillRate, cfg.Params.TokenCost, cfg.Params.TTLSec)

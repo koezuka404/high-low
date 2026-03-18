@@ -42,7 +42,7 @@ func NewUserUsecase(
 }
 
 func (uu *userUsecase) SignUp(ctx context.Context, user model.User, clientIP string) (model.ResponseUser, error) {
-	emailNorm, err := ConsumeAuthRateLimit(ctx, uu.rl, uu.rlp, clientIP, user.Email, "ratelimit:signup:ip:", "ratelimit:signup:email:")
+	emailNorm, err := EnforceAuthRateLimit(ctx, uu.rl, uu.rlp, clientIP, user.Email, "ratelimit:signup:ip:", "ratelimit:signup:email:")
 	if err != nil {
 		return model.ResponseUser{}, err
 	}
@@ -72,7 +72,7 @@ func (uu *userUsecase) SignUp(ctx context.Context, user model.User, clientIP str
 }
 
 func (uu *userUsecase) Login(ctx context.Context, user model.User, clientIP string) (string, error) {
-	emailNorm, err := ConsumeAuthRateLimit(ctx, uu.rl, uu.rlp, clientIP, user.Email, "ratelimit:login:ip:", "ratelimit:login:email:")
+	emailNorm, err := EnforceAuthRateLimit(ctx, uu.rl, uu.rlp, clientIP, user.Email, "ratelimit:login:ip:", "ratelimit:login:email:")
 	if err != nil {
 		return "", err
 	}
