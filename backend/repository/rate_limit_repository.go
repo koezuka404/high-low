@@ -48,9 +48,10 @@ else
 end
 `
 
+// NewRateLimitRepository は Redis クライアントが nil のとき nil を返す（noop は使わない）。
 func NewRateLimitRepository(client redis.UniversalClient) usecase.RateLimiter {
 	if client == nil {
-		return &noopRateLimitRepository{}
+		return nil
 	}
 	return &rateLimitRepository{
 		client: client,
@@ -82,10 +83,4 @@ func toInt64(v interface{}) (int64, bool) {
 	default:
 		return 0, false
 	}
-}
-
-type noopRateLimitRepository struct{}
-
-func (r *noopRateLimitRepository) ConsumeToken(ctx context.Context, key string, now float64, capacity, refillRate, tokenCost float64, ttlSec int64) (bool, int, error) {
-	return true, 0, nil
 }
