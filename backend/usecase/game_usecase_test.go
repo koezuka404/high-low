@@ -855,6 +855,141 @@ func TestGameUsecase_Cheat_UpdateOtherError(t *testing.T) {
 	}
 }
 
+func TestGameUsecase_ResetSet_SessionNotFound(t *testing.T) {
+	gr := newMockGameRepository()
+	rr := newMockRoundLogRepository()
+	gu := NewGameUsecase(gr, rr)
+
+	if _, err := gu.ResetSet(1, 1); err == nil {
+		t.Fatal("expected error")
+	} else if err != errSessionNotFound {
+		t.Fatalf("unexpected err: %v", err)
+	}
+}
+
+func TestGameUsecase_ResetSet_GameRepoError(t *testing.T) {
+	gr := newMockGameRepository()
+	gr.getErr = errors.New("get game error")
+	rr := newMockRoundLogRepository()
+	gu := NewGameUsecase(gr, rr)
+
+	if _, err := gu.ResetSet(1, 1); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestGameUsecase_ResetSet_VersionConflict(t *testing.T) {
+	gr := newMockGameRepository()
+	rr := newMockRoundLogRepository()
+	gu := NewGameUsecase(gr, rr)
+	gr.gameByUser[1] = &model.Game{ID: 10, UserID: 1, Status: model.GameStatusInProgress, Mode: model.GameModeDealer, Ver: 2}
+
+	if _, err := gu.ResetSet(1, 1); err == nil {
+		t.Fatal("expected error")
+	} else if err != errVersionConflict {
+		t.Fatalf("unexpected err: %v", err)
+	}
+}
+
+func TestGameUsecase_ResetSet_DeleteLogsError(t *testing.T) {
+	gr := newMockGameRepository()
+	rr := newMockRoundLogRepository()
+	rr.deleteErr = errors.New("delete error")
+	gu := NewGameUsecase(gr, rr)
+	gr.gameByUser[1] = &model.Game{ID: 10, UserID: 1, Status: model.GameStatusInProgress, Mode: model.GameModeDealer, Ver: 1}
+
+	if _, err := gu.ResetSet(1, 1); err == nil {
+		t.Fatal("expected error")
+	} else if err.Error() != "delete error" {
+		t.Fatalf("unexpected err: %v", err)
+	}
+}
+
+func TestGameUsecase_ResetSet_UpdateVersionConflict(t *testing.T) {
+	gr := newMockGameRepository()
+	rr := newMockRoundLogRepository()
+	gu := NewGameUsecase(gr, rr)
+	gr.gameByUser[1] = &model.Game{ID: 10, UserID: 1, Status: model.GameStatusInProgress, Mode: model.GameModeDealer, Ver: 1}
+	gr.updateErr = gorm.ErrRecordNotFound
+
+	if _, err := gu.ResetSet(1, 1); err == nil {
+		t.Fatal("expected error")
+	} else if err != errVersionConflict {
+		t.Fatalf("unexpected err: %v", err)
+	}
+}
+
+func TestGameUsecase_ResetSet_UpdateOtherError(t *testing.T) {
+	gr := newMockGameRepository()
+	rr := newMockRoundLogRepository()
+	gu := NewGameUsecase(gr, rr)
+	gr.gameByUser[1] = &model.Game{ID: 10, UserID: 1, Status: model.GameStatusInProgress, Mode: model.GameModeDealer, Ver: 1}
+	gr.updateErr = errors.New("update error")
+
+	if _, err := gu.ResetSet(1, 1); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestGameUsecase_ResetSet_Success(t *testing.T) {
+	gr := newMockGameRepository()
+	rr := newMockRoundLogRepository()
+	gu := NewGameUsecase(gr, rr)
+
+	cheatCard := 13
+	gr.gameByUser[1] = &model.Game{
+		ID:               10,
+		UserID:           1,
+		Status:           model.GameStatusFinished,
+		Mode:             model.GameModeDealer,
+		PlayerWins:       2,
+		DealerWins:       1,
+		ConsecutiveDraws: 3,
+		Cheated:          true,
+		CheatReserved:    true,
+		CheatCard:        &cheatCard,
+		Ver:              1,
+		PlayerUsedCards:  model.IntSlice{1, 2, 3},
+		DealerUsedCards:  model.IntSlice{4, 5, 6},
+	}
+	_ = rr.Create(&model.GameRoundLog{
+		GameID:           10,
+		Number:           1,
+		PlayerCard:       7,
+		DealerCard:       10,
+		Result:           model.RoundResultDealerWin,
+		ConsecutiveDraws: 0,
+		CheatUsed:        true,
+		PlayedAt:         timeNowForTest(),
+	})
+
+	got, err := gu.ResetSet(1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != model.GameStatusInProgress {
+		t.Fatalf("unexpected status: %s", got.Status)
+	}
+	if got.Mode != model.GameModeDealer {
+		t.Fatalf("expected mode preserved, got %s", got.Mode)
+	}
+	if got.PlayerWins != 0 || got.DealerWins != 0 || got.ConsecutiveDraws != 0 {
+		t.Fatalf("unexpected wins/draws: %d %d %d", got.PlayerWins, got.DealerWins, got.ConsecutiveDraws)
+	}
+	if got.Cheated || got.CheatReserved || got.CheatCard != nil {
+		t.Fatalf("unexpected cheat state: %+v", got)
+	}
+	if len(got.PlayerUsedCards) != 0 || len(got.DealerUsedCards) != 0 || len(got.Rounds) != 0 {
+		t.Fatalf("expected cards/rounds reset")
+	}
+	if got.Ver != 2 {
+		t.Fatalf("expected ver=2, got %d", got.Ver)
+	}
+	if c, err := rr.GetRoundLogCountByGameID(10); err != nil || c != 0 {
+		t.Fatalf("expected logs deleted, got count=%d err=%v", c, err)
+	}
+}
+
 func TestGameUsecase_ChangeMode_Errors(t *testing.T) {
 	gr := newMockGameRepository()
 	rr := newMockRoundLogRepository()

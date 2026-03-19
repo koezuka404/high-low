@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -81,7 +82,10 @@ func runWithDeps(deps runDeps) error {
 		return err
 	}
 
-	redisClient, _ := deps.newRedis()
+	redisClient, err := deps.newRedis()
+	if err != nil {
+		return fmt.Errorf("redis init: %w", err)
+	}
 
 	rateLimitParams := usecase.RateLimitParams{
 		Capacity:   20,

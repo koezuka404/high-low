@@ -1,6 +1,7 @@
 package router
 
 import (
+	"net/http"
 	"time"
 
 	"backend/controller"
@@ -18,6 +19,9 @@ func NewRouter(
 ) *echo.Echo {
 
 	e := echo.New()
+	e.GET("/healthz", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
 
 	authMW := middleware.NewAuthMiddleware(userSessionRepo)
 

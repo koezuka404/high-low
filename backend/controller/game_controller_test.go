@@ -453,6 +453,87 @@ func TestGameController_Cheat_UsecaseError(t *testing.T) {
 	}
 }
 
+func TestGameController_ResetSet_ValidationAndUnauthorized(t *testing.T) {
+	e := echo.New()
+	gc := NewGameController(&mockGameUsecase{})
+
+	req := newJSONRequest(http.MethodPost, "/api/game/reset", map[string]any{"ver": 1})
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := gc.ResetSet(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/game/reset", bytes.NewReader([]byte(`{"ver":`)))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec = httptest.NewRecorder()
+	c = e.NewContext(req, rec)
+	c.Set(middleware.CtxUserIDKey, uint(1))
+	if err := gc.ResetSet(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+
+	req = newJSONRequest(http.MethodPost, "/api/game/reset", map[string]any{})
+	rec = httptest.NewRecorder()
+	c = e.NewContext(req, rec)
+	c.Set(middleware.CtxUserIDKey, uint(1))
+	if err := gc.ResetSet(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rec.Code)
+	}
+}
+
+func TestGameController_ResetSet_SuccessAndUsecaseError(t *testing.T) {
+	e := echo.New()
+	gc := NewGameController(&mockGameUsecase{
+		resetSetFn: func(userID uint, ver int64) (*model.Game, error) {
+			return &model.Game{
+				ID:         1,
+				UserID:     userID,
+				Status:     model.GameStatusNotStarted,
+				Mode:       model.GameModeDealer,
+				PlayerWins: 0,
+				DealerWins: 0,
+				Ver:        ver + 1,
+			}, nil
+		},
+	})
+	rec := httptest.NewRecorder()
+	req := newJSONRequest(http.MethodPost, "/api/game/reset", map[string]any{"ver": 1})
+	c := e.NewContext(req, rec)
+	c.Set(middleware.CtxUserIDKey, uint(1))
+	if err := gc.ResetSet(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	gc = NewGameController(&mockGameUsecase{
+		resetSetFn: func(userID uint, ver int64) (*model.Game, error) {
+			return nil, &usecase.AppError{Code: "version_conflict", Message: "version conflict"}
+		},
+	})
+	rec = httptest.NewRecorder()
+	req = newJSONRequest(http.MethodPost, "/api/game/reset", map[string]any{"ver": 2})
+	c = e.NewContext(req, rec)
+	c.Set(middleware.CtxUserIDKey, uint(1))
+	if err := gc.ResetSet(c); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d", rec.Code)
+	}
+}
+
 func TestGameController_ChangeMode_Success_And_UsecaseError(t *testing.T) {
 	e := echo.New()
 	gc := NewGameController(&mockGameUsecase{

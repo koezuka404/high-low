@@ -119,6 +119,26 @@ func TestRunWithDeps_MigrateError(t *testing.T) {
 	}
 }
 
+func TestRunWithDeps_RedisError(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	errBoom := errors.New("redis error")
+	err = runWithDeps(runDeps{
+		getenv: func(string) string { return "" },
+		newDB:  func() (*gorm.DB, error) { return db, nil },
+		autoMigrate: func(db *gorm.DB) error {
+			return nil
+		},
+		newRedis: func() (redis.UniversalClient, error) { return nil, errBoom },
+		start:    func(e *echo.Echo) error { return nil },
+	})
+	if !errors.Is(err, errBoom) {
+		t.Fatalf("unexpected err: %v", err)
+	}
+}
+
 func TestRunWithDeps_Success_ParsesRateLimitEnv(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {

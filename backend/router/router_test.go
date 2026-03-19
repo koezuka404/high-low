@@ -63,6 +63,7 @@ func TestNewRouter(t *testing.T) {
 		method string
 		path   string
 	}{
+		{http.MethodGet, "/healthz"},
 		{http.MethodPost, "/signup"},
 		{http.MethodPost, "/login"},
 		{http.MethodPost, "/logout"},
