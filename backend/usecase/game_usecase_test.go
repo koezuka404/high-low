@@ -502,8 +502,8 @@ func TestGameUsecase_Select_DealerWin(t *testing.T) {
 		DealerWins:      0,
 		ConsecutiveDraws: 2,
 		Ver:             1,
-		PlayerUsedCards: model.IntSlice{2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}, // remaining [1]
-		DealerUsedCards: model.IntSlice{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, // remaining [13]
+		PlayerUsedCards: model.IntSlice{2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
+		DealerUsedCards: model.IntSlice{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 	}
 	gr.gameByUser[1] = game
 
@@ -540,8 +540,8 @@ func TestGameUsecase_Select_UpdateOtherError(t *testing.T) {
 		Status:          model.GameStatusInProgress,
 		Mode:            model.GameModePlayer,
 		Ver:             1,
-		PlayerUsedCards: model.IntSlice{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, // remaining [13]
-		DealerUsedCards: model.IntSlice{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, // remaining [13]
+		PlayerUsedCards: model.IntSlice{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+		DealerUsedCards: model.IntSlice{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 	}
 	gr.gameByUser[1] = game
 	gr.updateErr = errors.New("update error")
@@ -1091,10 +1091,10 @@ func TestGameUsecase_Select_ConsumesCheatReservation(t *testing.T) {
 		CheatCard:     &cheatCard,
 		PlayerUsedCards: model.IntSlice{
 			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-		}, // remaining [13]
+		},
 		DealerUsedCards: model.IntSlice{
 			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-		}, // remaining [13] but will be forced anyway
+		},
 	}
 	gr.gameByUser[1] = game
 
@@ -1126,10 +1126,10 @@ func TestGameUsecase_Select_CheatReservedButNilCardDoesNotConsume(t *testing.T) 
 		CheatCard:     nil,
 		PlayerUsedCards: model.IntSlice{
 			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-		}, // remaining [13]
+		},
 		DealerUsedCards: model.IntSlice{
 			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
-		}, // remaining [13]
+		},
 	}
 	gr.gameByUser[1] = game
 

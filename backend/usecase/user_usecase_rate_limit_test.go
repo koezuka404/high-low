@@ -46,7 +46,7 @@ func TestUserUsecase_SignUp_RateLimited(t *testing.T) {
 }
 
 func TestUserUsecase_Login_RateLimiterErrorPropagatesAsInternal(t *testing.T) {
-	hashed := []byte("$2a$10$0L7nE9bJwQ0f44k3sA1C5u9Qb8yYh2ZBf0rYI2KqFhZlYv7i4dQqG") // looks like bcrypt but may fail; not reached
+	hashed := []byte("$2a$10$0L7nE9bJwQ0f44k3sA1C5u9Qb8yYh2ZBf0rYI2KqFhZlYv7i4dQqG")
 	ur := &mockUserRepository{
 		getUserByEmailFn: func(user *model.User, email string) error {
 			user.ID = 1

@@ -162,7 +162,5 @@ func generateCSRFToken() string {
 }
 
 func cookieSecure() bool {
-	// Spec requires Secure cookies in production, but local http dev cannot use Secure cookies.
-	// Set COOKIE_SECURE=false to allow local development.
 	return os.Getenv("COOKIE_SECURE") != "false"
 }

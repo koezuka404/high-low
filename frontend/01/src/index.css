@@ -3,14 +3,14 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  --bg: #0b1020;
-  --panel: #111a33;
-  --panel2: #0f1831;
-  --border: rgba(255, 255, 255, 0.12);
-  --text: rgba(255, 255, 255, 0.92);
-  --muted: rgba(255, 255, 255, 0.62);
-  --accent: #7c3aed;
+  color-scheme: light;
+  --bg: #f6f7fb;
+  --panel: #ffffff;
+  --panel2: #f5f6fa;
+  --border: rgba(17, 24, 39, 0.12);
+  --text: rgba(17, 24, 39, 0.92);
+  --muted: rgba(17, 24, 39, 0.62);
+  --accent: #6d28d9;
   color: var(--text);
   background-color: var(--bg);
 
@@ -34,21 +34,4 @@ body {
   display: block;
   min-width: 320px;
   min-height: 100vh;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f6f7fb;
-    --panel: #ffffff;
-    --panel2: #f5f6fa;
-    --border: rgba(17, 24, 39, 0.12);
-    --text: rgba(17, 24, 39, 0.92);
-    --muted: rgba(17, 24, 39, 0.62);
-    --accent: #6d28d9;
-    color: var(--text);
-    background-color: var(--bg);
-  }
-  a:hover {
-    color: #747bff;
-  }
 }

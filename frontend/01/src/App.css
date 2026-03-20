@@ -1,7 +1,7 @@
 .tableBg {
   min-height: 100vh;
   padding: 8px 0 40px;
-  background-color: #064e3b; /* 濃い緑 */
+  background-color: #e8f5e9; /* ライトグリーン */
 }
 
 .page {
@@ -71,39 +71,40 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
-  box-shadow: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   backdrop-filter: none;
 }
 
 .auth-panel {
-  background: #3d3d3d;
-  border-color: #5a5a5a;
-  color: #ffffff;
+  background: #ffffff;
+  border-color: rgba(17, 24, 39, 0.12);
+  color: rgba(17, 24, 39, 0.92);
 }
 
 .auth-panel .label {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(17, 24, 39, 0.7);
 }
 
 .auth-panel .input {
-  background: #2b2b2b;
-  border-color: #5a5a5a;
-  color: #ffffff;
+  background: #f5f6fa;
+  border-color: rgba(17, 24, 39, 0.15);
+  color: rgba(17, 24, 39, 0.92);
 }
 
 .auth-panel .input::placeholder {
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(17, 24, 39, 0.45);
 }
 
 .auth-panel .btn {
-  background: #f3f3f3;
-  border-color: #d1d1d1;
-  color: #222222;
+  background: #f5f6fa;
+  border-color: rgba(17, 24, 39, 0.2);
+  color: rgba(17, 24, 39, 0.92);
 }
 
 .auth-panel .btn.primary {
-  background: #f3f3f3;
-  border-color: #d1d1d1;
+  background: #6d28d9;
+  border-color: #6d28d9;
+  color: #ffffff;
 }
 
 .auth-panel .tab {
@@ -111,9 +112,9 @@
 }
 
 .auth-panel .tab.active {
-  background: #f3f3f3;
-  border-color: #f3f3f3;
-  color: #222222;
+  background: #6d28d9;
+  border-color: #6d28d9;
+  color: #ffffff;
 }
 
 .panelTitle {
@@ -163,11 +164,11 @@
   font-weight: 900;
   letter-spacing: 1.2px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(17, 24, 39, 0.72);
 }
 .stageSub {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(17, 24, 39, 0.62);
 }
 
 .chips {
@@ -177,8 +178,9 @@
 .chip {
   border-radius: 999px;
   padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(17, 24, 39, 0.15);
+  background: rgba(255, 255, 255, 0.9);
+  color: rgba(17, 24, 39, 0.92);
   font-weight: 800;
 }
 .chip.player {
@@ -196,8 +198,8 @@
   align-items: center;
   padding: 32px 40px;
   border-radius: 9999px; /* 丸いテーブル */
-  border: 2px solid rgba(15, 118, 110, 0.9);
-  background-color: #0b8b3f; /* テーブルグリーン */
+  border: 2px solid rgba(34, 197, 94, 0.6);
+  background-color: #22c55e; /* テーブルグリーン（ライト） */
 }
 
 .seat {
@@ -210,7 +212,7 @@
   font-size: 12px;
   letter-spacing: 0.9px;
   font-weight: 900;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .center {
@@ -227,11 +229,11 @@
 }
 .meta {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.68);
+  color: rgba(255, 255, 255, 0.95);
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.08);
 }
 
 .finishWinLose {
@@ -333,13 +335,13 @@
   gap: 8px;
   padding: 6px 8px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--border);
+  background: rgba(17, 24, 39, 0.06);
 }
 
 .confirmText {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--muted);
   font-weight: 800;
   letter-spacing: 0.2px;
 }
@@ -350,9 +352,9 @@
   gap: 8px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(0, 0, 0, 0.12);
-  color: rgba(255, 255, 255, 0.68);
+  border: 1px solid var(--border);
+  background: rgba(17, 24, 39, 0.06);
+  color: var(--muted);
   font-weight: 850;
   letter-spacing: 0.2px;
 }
@@ -403,7 +405,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.16);
+  background: rgba(255, 255, 255, 0.9);
   color: var(--text);
   cursor: pointer;
   font-weight: 650;
@@ -524,6 +526,14 @@
   border: 1px solid var(--border);
   background: transparent;
 }
+.historyItem.win {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.historyItem.lose {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+}
 
 .historyLeft {
   display: flex;
@@ -540,7 +550,7 @@
   font-weight: 900;
   letter-spacing: 0.6px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text);
 }
 
 .historyCards {
@@ -554,28 +564,29 @@
   font-size: 11px;
   letter-spacing: 0.9px;
   font-weight: 900;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--muted);
 }
 
 .miniCard {
   min-width: 40px;
   padding: 6px 10px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.86);
+  background: #ffffff;
   color: rgba(17, 24, 39, 0.92);
   font-weight: 950;
   text-align: center;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .vs {
   font-size: 11px;
   font-weight: 950;
   letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--muted);
 }
 
 .historySub {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--muted);
 }

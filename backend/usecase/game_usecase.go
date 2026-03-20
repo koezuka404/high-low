@@ -272,7 +272,6 @@ func (gu *gameUsecase) ResetSet(userID uint, ver int64) (*model.Game, error) {
 		return nil, err
 	}
 
-	// Reset current set progress. Keep the current mode.
 	game.Status = model.GameStatusInProgress
 	game.PlayerWins = 0
 	game.DealerWins = 0

@@ -4,28 +4,7 @@ import { ApiException as ApiExceptionClass } from './api/http'
 import { login, logout, signup } from './api/auth'
 import { gameChangeMode, gameCheat, gameResetSet, gameSelect, gameStart, gameStatus } from './api/game'
 import type { GameMode, StatusResponse, SelectResponse } from './api/types'
-
-function rank(n: number): string {
-  return String(n)
-}
-
-function modeLabel(m: GameMode): string {
-  return m === 'PLAYER' ? 'プレイヤー' : 'ディーラー'
-}
-
-function toYouResult(result: SelectResponse['result'], youAreDealer: boolean): SelectResponse['result'] {
-  if (!youAreDealer) return result
-  if (result === 'PLAYER_WIN') return 'DEALER_WIN'
-  if (result === 'DEALER_WIN') return 'PLAYER_WIN'
-  return 'DRAW'
-}
-
-function resultLabel(r: SelectResponse['result'] | null): string {
-  if (!r) return ''
-  if (r === 'PLAYER_WIN') return 'あなたの勝ち'
-  if (r === 'DEALER_WIN') return '相手の勝ち'
-  return '引き分け'
-}
+import { friendlyError, modeLabel, rank, resultLabel, toYouResult } from './utils'
 
 function ResultBadge({ result }: { result: SelectResponse['result'] | null }) {
   if (!result) return null
@@ -36,36 +15,6 @@ function ResultBadge({ result }: { result: SelectResponse['result'] | null }) {
 function HistoryBadge({ result }: { result: SelectResponse['result'] }) {
   const cls = result === 'DRAW' ? 'badge draw' : result === 'PLAYER_WIN' ? 'badge win' : 'badge lose'
   return <div className={cls}>{resultLabel(result)}</div>
-}
-
-function friendlyError(code: string, message: string): string {
-  switch (code) {
-    case 'unauthorized':
-      return 'ログインが必要です。'
-    case 'forbidden':
-      return '操作できません。'
-    case 'too_many_requests':
-      return '操作が早すぎます。少し待ってからもう一度お試しください。'
-    case 'version_conflict':
-      return '状態が更新されました。もう一度お試しください。'
-    case 'game_not_started':
-      return 'ゲームが開始されていません。'
-    case 'game_already_started':
-      return 'ゲームは進行中です。'
-    case 'game_not_finished':
-      return 'まだゲームが終了していません。'
-    case 'invalid_input':
-    case 'invalid_json':
-      return '入力内容が正しくありません。'
-    case 'cheat_not_allowed':
-      return 'このモードではチートは使えません。'
-    case 'cheat_already_used':
-      return 'チートはこのセットで1回までです。'
-    case 'cheat_not_available':
-      return 'チートを使えるカードが残っていません。'
-    default:
-      return message || 'エラーが発生しました。'
-  }
 }
 
 function Card({ value, dim, overlay }: { value: number | null; dim?: boolean; overlay?: 'win' | 'lose' | null }) {
@@ -124,18 +73,14 @@ function App() {
       setDisplayMode(null)
       return
     }
-    // Keep the screen perspective stable.
-    // Update only when a new set is actually in progress (i.e., after Start).
     if (status.status === 'IN_PROGRESS') {
       setDisplayMode(status.mode)
       return
     }
-    // Initial load (e.g., refreshed while FINISHED/NOT_STARTED)
     setDisplayMode((prev) => prev ?? status.mode)
   }, [status])
 
   useEffect(() => {
-    // Reset cheat pending when mode/status changes or user logs out.
     if (!status || status.status !== 'IN_PROGRESS' || status.mode !== 'DEALER') {
       setCheatPending(false)
     }
@@ -230,7 +175,6 @@ function App() {
 
   const onSubmitAuth = useCallback(async () => {
     await run(async () => {
-      // ログイン前に前の状態をクリア
       setStatus(null)
       setLastRound(null)
       setCheatPending(false)
@@ -261,12 +205,10 @@ function App() {
 
   const onResetSet = useCallback(async () => {
     await run(async () => {
-      // Retry a few times on version_conflict to avoid "error -> not reset" feeling.
       let s = status ?? (await refreshStatus())
       for (let i = 0; i < 3; i++) {
         try {
           const r = await gameResetSet({ ver: s.ver })
-          // Clear UI immediately so "履歴表示" resets right away.
           setStatus((prev) =>
             prev
               ? {
@@ -469,14 +411,14 @@ function App() {
                     })
                   }
                 >
-                  ジャッジ
+                  勝負
                 </button>
                 <button className="btn" disabled={loading || !canResetSet} onClick={onResetSet}>
                   リセット
                 </button>
                 {status?.mode === 'DEALER' ? (
                   status.cheated && !status.cheat_reserved ? (
-                    <div className="usedTag">チート使用済み</div>
+                    <div className="usedTag">イカサマ使用済み</div>
                   ) : (
                     <button
                       className={`btn warn ${cheatPending || status.cheat_reserved ? 'cheat-active' : ''}`}
@@ -513,8 +455,20 @@ function App() {
                   {status.history
                     .slice()
                     .reverse()
-                    .map((h) => (
-                      <div className="historyItem" key={h.round}>
+                    .map((h) => {
+                      const yourResult = youAreDealer
+                        ? h.result === 'PLAYER_WIN'
+                          ? 'DEALER_WIN'
+                          : h.result === 'DEALER_WIN'
+                            ? 'PLAYER_WIN'
+                            : 'DRAW'
+                        : h.result
+                      const itemCls =
+                        yourResult === 'DRAW'
+                          ? 'historyItem'
+                          : `historyItem ${yourResult === 'PLAYER_WIN' ? 'win' : 'lose'}`
+                      return (
+                      <div className={itemCls} key={h.round}>
                         <div className="historyLeft">
                           <div className="historyRound">
                             ラウンド <span className="mono">{h.round}</span>
@@ -547,7 +501,7 @@ function App() {
                           />
                         </div>
                       </div>
-                    ))}
+                    )})}
                 </div>
               ) : (
                 <div className="muted">まだ履歴がありません</div>

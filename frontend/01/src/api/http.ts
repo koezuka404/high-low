@@ -39,7 +39,6 @@ async function parseEnvelope<T>(res: Response): Promise<T> {
 
   const env = json as ApiEnvelope<T>
   if (!env || typeof env !== 'object' || !('success' in env)) {
-    // 非エンベロープ（Echoデフォルトの {"message":...} など）はここで処理
     if (!res.ok) {
       const obj = json as { message?: unknown } | null
       const msg = typeof obj?.message === 'string' ? obj.message : res.statusText || `HTTP ${res.status}`
